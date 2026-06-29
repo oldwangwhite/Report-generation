@@ -1,0 +1,20 @@
+.my-reports-page {
+    padding: 24px;
+    background: #eef3f8;
+}
+
+.my-reports-hero {
+    margin-bottom: 18px;
+    padding: 24px;
+    border: 1px solid #dbe6f3;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.my-reports-hero h2 {
+    margin: 6px 0 8px;
+}
+
+.chapter-detail-card {
+    margin-bottom: 12px;
+}
