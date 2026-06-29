@@ -1,0 +1,158 @@
+﻿.platform-shell {
+    min-height: 100vh;
+    background: #eef3f8;
+}
+
+.platform-sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    padding: 20px 14px;
+    background: #10243d !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.platform-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 6px 22px;
+    color: #fff;
+}
+
+.platform-brand strong {
+    display: block;
+    font-size: 17px;
+    line-height: 1.45;
+}
+
+.platform-brand span {
+    display: block;
+    color: #aab8ca;
+    font-size: 12px;
+}
+
+.brand-mark {
+    display: grid;
+    width: 42px;
+    height: 42px;
+    place-items: center;
+    border-radius: 8px;
+    background: #1f8fed;
+    color: #fff;
+    font-size: 20px;
+    font-weight: 800;
+}
+
+.platform-menu {
+    border-inline-end: 0 !important;
+    background: transparent;
+}
+
+.platform-menu .ant-menu-item {
+    height: 44px;
+    margin: 5px 0;
+    color: #c4d2e3;
+}
+
+
+.platform-menu .ant-menu-submenu-title {
+    height: 44px;
+    margin: 5px 0;
+    color: #c4d2e3 !important;
+}
+
+.platform-menu .ant-menu-submenu-selected > .ant-menu-submenu-title {
+    color: #fff !important;
+    font-weight: 700;
+}
+
+.platform-menu .ant-menu-sub {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-radius: 8px;
+}
+
+.platform-menu .ant-menu-sub .ant-menu-item {
+    height: 40px;
+    margin: 4px 0;
+    padding-left: 42px !important;
+}
+.platform-menu .ant-menu-item-selected {
+    background: #1f8fed !important;
+    color: #fff !important;
+    font-weight: 700;
+}
+
+.sidebar-summary {
+    position: absolute;
+    right: 14px;
+    bottom: 20px;
+    left: 14px;
+    display: grid;
+    gap: 6px;
+    padding: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.sidebar-summary strong {
+    color: #fff;
+    font-size: 16px;
+}
+
+.sidebar-summary span {
+    color: #aab8ca;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.platform-main {
+    min-width: 0;
+}
+
+.platform-header {
+    display: flex;
+    min-height: 96px;
+    height: auto;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    background: #fff;
+    border-bottom: 1px solid #dbe6f3;
+    line-height: normal;
+}
+
+.platform-header h1 {
+    margin: 4px 0 0;
+    color: #172033;
+    font-size: 22px;
+    line-height: 1.2;
+}
+
+@media (max-width: 960px) {
+    .platform-sidebar {
+        position: relative;
+        width: 100% !important;
+        max-width: none !important;
+        height: auto;
+    }
+
+    .sidebar-summary {
+        position: static;
+        margin-top: 16px;
+    }
+
+    .platform-shell {
+        display: block;
+    }
+
+    .platform-header {
+        height: auto;
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 10px;
+        padding: 16px;
+    }
+}
+
