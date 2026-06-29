@@ -1,0 +1,20 @@
+.login-page {
+    display: grid;
+    min-height: 100vh;
+    place-items: center;
+    padding: 32px;
+    background: #eef3f8;
+}
+
+.login-panel {
+    width: min(620px, 100%);
+    padding: 32px;
+    border: 1px solid #dbe6f3;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 18px 42px rgba(20, 48, 92, 0.12);
+}
+
+.login-panel h2 {
+    margin: 6px 0 8px;
+}
