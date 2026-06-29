@@ -2,7 +2,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { message } from 'antd';
 import { streamGenerateContent } from '../services/reportService';
-import type { Chapter, ChapterContent, Report, StreamEvent } from '../types/report';
+import type { Chapter, ChapterContent, ChapterTable, Report, StreamEvent } from '../types/report';
 
 /** 管理报告正文流式生成过程中的章节状态、内容增量和进度展示。 */
 export function useReportSSE(params: {
@@ -32,6 +32,17 @@ export function useReportSSE(params: {
         const next: ChapterContent = existing
           ? { ...existing, content: `${existing.content}${event.contentDelta}` }
           : { chapterId: event.chapterId!, content: event.contentDelta!, tables: [] };
+        return [...prev.filter((item) => item.chapterId !== event.chapterId), next];
+      });
+    }
+
+    if (event.event === 'table' && event.chapterId && event.table) {
+      params.setContents((prev) => {
+        const existing = prev.find((item) => item.chapterId === event.chapterId);
+        const tables: ChapterTable[] = [...(existing?.tables || []), event.table!];
+        const next: ChapterContent = existing
+          ? { ...existing, tables }
+          : { chapterId: event.chapterId!, content: '', tables };
         return [...prev.filter((item) => item.chapterId !== event.chapterId), next];
       });
     }
@@ -69,7 +80,24 @@ export function useReportSSE(params: {
     setGenerating(true);
     setPercent(0);
     setProgressText('准备生成');
-    await streamGenerateContent(params.report.reportId, params.outline, handleEvent, options);
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    try {
+      await streamGenerateContent(params.report.reportId, params.outline, handleEvent, {
+        ...options,
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setProgressText('已取消生成');
+        message.info('已取消生成');
+      } else {
+        message.error(error instanceof Error ? error.message : '生成失败');
+      }
+      setGenerating(false);
+    }
   };
 
     const cancelGenerate = () => {

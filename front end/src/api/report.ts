@@ -12,7 +12,7 @@ import type {
     Template,
 } from '../types/report';
 
-const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false';
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
 const MOCK_TEMPLATES: Template[] = [
   {
@@ -360,6 +360,7 @@ export async function streamGenerateContent(
   const response = await fetch(`${API_BASE}/api/reports/${reportId}/content/generate`, {
     method: 'POST',
     headers,
+    signal: options?.signal,
     body: JSON.stringify({
       chapterIds: options?.chapterIds || [],
       regenerate: options?.regenerate || false,
@@ -367,6 +368,17 @@ export async function streamGenerateContent(
     }),
   });
 
+  if (!response.ok) {
+    const text = await response.text();
+    let message = text || '内容生成失败';
+    try {
+      const json = JSON.parse(text);
+      message = json.message || json.detail || message;
+    } catch {
+      // Keep the raw text when the response is not JSON.
+    }
+    throw new Error(message);
+  }
   if (!response.body) throw new Error('当前浏览器不支持流式读取');
   const reader = response.body.getReader();
   const decoder = new TextDecoder('utf-8');

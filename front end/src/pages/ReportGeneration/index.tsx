@@ -621,7 +621,9 @@ function PreviewPanel(props: {
           <Radio.Group value={format} onChange={(event) => setFormat(event.target.value)}>
             <Space direction="vertical">
               <Radio value="docx">DOCX Word</Radio>
-              <Radio value="pdf">PDF</Radio>
+              <Radio value="pdf" disabled>
+                PDF（后端暂未开放）
+              </Radio>
               <Radio value="md">Markdown</Radio>
               <Radio value="txt">TXT 文本</Radio>
             </Space>

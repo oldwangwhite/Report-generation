@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.errors import (
@@ -17,6 +18,13 @@ from app.db.session import SessionLocal, engine
 settings = get_settings()
 
 app = FastAPI(title=settings.app_name)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.add_middleware(TraceIdMiddleware)
 app.add_exception_handler(BusinessError, business_error_handler)
 app.add_exception_handler(RequestValidationError, validation_error_handler)
@@ -35,18 +43,13 @@ def startup() -> None:
         seed_reference_data(db)
 
 
-# Routers are imported lazily so partially implemented modules do not block
-# early core tests. Later tasks register their own routers here.
-try:
-    from app.api.v1 import contents, exports, materials, model_config, outlines, reports, templates, users
+from app.api.v1 import contents, exports, materials, model_config, outlines, reports, templates, users
 
-    app.include_router(reports.router, prefix="/api")
-    app.include_router(outlines.router, prefix="/api")
-    app.include_router(contents.router, prefix="/api")
-    app.include_router(exports.router, prefix="/api")
-    app.include_router(templates.router, prefix="/api")
-    app.include_router(materials.router, prefix="/api")
-    app.include_router(model_config.router, prefix="/api")
-    app.include_router(users.router, prefix="/api")
-except Exception:
-    pass
+app.include_router(reports.router, prefix="/api")
+app.include_router(outlines.router, prefix="/api")
+app.include_router(contents.router, prefix="/api")
+app.include_router(exports.router, prefix="/api")
+app.include_router(templates.router, prefix="/api")
+app.include_router(materials.router, prefix="/api")
+app.include_router(model_config.router, prefix="/api")
+app.include_router(users.router, prefix="/api")

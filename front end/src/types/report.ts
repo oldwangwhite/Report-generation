@@ -51,7 +51,7 @@ export interface Chapter {
 }
 
 export interface ChapterTable {
-  tableId: string;
+  tableId?: string | null;
   title: string;
   headers: string[];
   rows: string[][];
@@ -112,7 +112,7 @@ export interface CreateReportPayload {
 }
 
 export interface StreamEvent {
-  event: 'chapterStart' | 'chunk' | 'progress' | 'chapterDone' | 'done' | 'error';
+  event: 'chapterStart' | 'chunk' | 'table' | 'progress' | 'chapterDone' | 'done' | 'error';
   reportId: string;
   chapterId?: string;
   chapterNo?: string;
@@ -121,6 +121,7 @@ export interface StreamEvent {
   completedChapters?: number;
   totalChapters?: number;
   percent?: number;
+  table?: ChapterTable;
   status?: ReportStatus | ChapterStatus;
   code?: number;
   message?: string;

@@ -12,8 +12,13 @@ export function normalizeUserRole(role: string | null | undefined): UserRole {
     return 'user';
 }
 
-export function saveLoginSession(role: UserRole, username: string) {
-    const token = `mock-token-${role}-${Date.now()}`;
+export function getTokenByRole(role: UserRole) {
+    if (role === 'super_admin') return 'super-token';
+    if (role === 'admin') return 'admin-token';
+    return 'user-token';
+}
+
+export function saveLoginSession(role: UserRole, username: string, token = getTokenByRole(role)) {
     localStorage.setItem(ROLE_STORAGE_KEY, role);
     localStorage.setItem(USERNAME_STORAGE_KEY, username);
     localStorage.setItem(TOKEN_STORAGE_KEY, token);
