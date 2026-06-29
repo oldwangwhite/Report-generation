@@ -128,6 +128,7 @@ class ReportService:
             "status": report.status,
             "generatedAt": isoformat(report.generated_at),
             "createdAt": isoformat(report.created_at),
+            "updatedAt": isoformat(report.updated_at),
         }
 
     def _report_detail(self, report: ReportRecord) -> dict:

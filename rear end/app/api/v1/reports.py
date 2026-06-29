@@ -5,9 +5,18 @@ from app.core.response import api_response, page_result
 from app.core.security import CurrentUser, get_current_user
 from app.db.session import get_db
 from app.schemas.report import ReportCreateRequest, ReportUpdateRequest
+from app.service.permission_service import require_permission
 from app.service.report_service import ReportService
 
 router = APIRouter(prefix="/reports", tags=["reports"])
+
+
+def report_generate_user(
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> CurrentUser:
+    require_permission(db, current_user, "report.generate")
+    return current_user
 
 
 @router.post("")
@@ -15,7 +24,7 @@ def create_report(
     payload: ReportCreateRequest,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(report_generate_user),
 ):
     data = ReportService(db).create_report(payload, current_user)
     return api_response(data, request)
@@ -55,7 +64,7 @@ def update_report(
     payload: ReportUpdateRequest,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(report_generate_user),
 ):
     data = ReportService(db).update_report(report_id, payload, current_user)
     return api_response(data, request)

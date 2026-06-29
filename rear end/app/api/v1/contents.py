@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.api.v1.reports import report_generate_user
 from app.core.response import api_response
-from app.core.security import CurrentUser, get_current_user
+from app.core.security import CurrentUser
 from app.db.session import get_db
 from app.schemas.content import (
     ChapterContentSaveRequest,
@@ -20,7 +21,7 @@ def generate_content(
     report_id: str,
     payload: ContentGenerateRequest,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(report_generate_user),
 ):
     stream = ContentGenerationService(db).stream_generate(report_id, payload, current_user)
     return StreamingResponse(stream, media_type="text/event-stream")
@@ -33,7 +34,7 @@ def save_chapter_content(
     payload: ChapterContentSaveRequest,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(report_generate_user),
 ):
     data = ContentGenerationService(db).save_content(report_id, chapter_id, payload, current_user)
     return api_response(data, request)
@@ -45,7 +46,7 @@ def regenerate_chapter(
     chapter_id: str,
     payload: RegenerateChapterRequest,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(report_generate_user),
 ):
     stream = ContentGenerationService(db).stream_regenerate(
         report_id, chapter_id, payload, current_user

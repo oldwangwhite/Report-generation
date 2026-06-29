@@ -3,6 +3,8 @@ import time
 
 from sqlalchemy.orm import Session
 
+from app.ai.model_client import LLMCallError, LLMConfigError, test_model_connection
+from app.core.errors import BusinessError
 from app.core.security import CurrentUser
 from app.entity.system_config import SystemConfig
 from app.utils.datetime_utils import isoformat
@@ -40,8 +42,17 @@ class ModelConfigService:
 
     def test_connection(self) -> dict:
         start = time.perf_counter()
-        self._get_or_default()
-        return {"available": True, "latencyMs": int((time.perf_counter() - start) * 1000)}
+        try:
+            result = test_model_connection(self.db)
+        except LLMConfigError as exc:
+            raise BusinessError(400, str(exc)) from exc
+        except LLMCallError as exc:
+            raise BusinessError(502, str(exc)) from exc
+        return {
+            "available": True,
+            "latencyMs": int((time.perf_counter() - start) * 1000),
+            **result,
+        }
 
     def _get_or_default(self) -> SystemConfig:
         item = self.db.query(SystemConfig).filter(SystemConfig.config_type == "llm").first()

@@ -157,10 +157,11 @@ export default function ReportGenerationPage() {
   const handleCreate = async () => {
     const values = await form.validateFields();
     const created = await createReport(values);
-    setReport(created);
+    const fullReport = { ...values, ...created };
+    setReport(fullReport);
     setStep(1);
     message.success('报告创建成功');
-    return created;
+    return fullReport;
   };
 
   const handleGenerateOutline = async () => {
@@ -168,7 +169,7 @@ export default function ReportGenerationPage() {
     const values = form.getFieldsValue();
     const nextOutline = await generateOutline(currentReport.reportId, {
       reportType: currentReport.reportType,
-      topic: currentReport.topic,
+      topic: currentReport.topic || values.topic,
       templateId: values.templateId,
     });
     setOutline(nextOutline);

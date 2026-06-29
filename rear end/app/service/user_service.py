@@ -2,12 +2,14 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import BusinessError, NotFoundError
 from app.entity.user import Role, User
+from app.service.permission_service import (
+    ROLE_API_TO_DB,
+    ROLE_DB_TO_API,
+    list_role_permissions,
+    update_role_permissions,
+)
 from app.utils.datetime_utils import isoformat
 from app.utils.id_utils import parse_external_id, to_external_id
-
-
-ROLE_API_TO_DB = {"user": "standard_user", "admin": "admin", "super_admin": "super_admin"}
-ROLE_DB_TO_API = {value: key for key, value in ROLE_API_TO_DB.items()}
 
 
 class UserService:
@@ -44,6 +46,12 @@ class UserService:
         self.db.commit()
         self.db.refresh(user)
         return self._item(user)
+
+    def list_role_permissions(self) -> dict:
+        return list_role_permissions(self.db)
+
+    def update_role_permissions(self, role: str, permission_codes: list[str]) -> dict:
+        return update_role_permissions(self.db, role, permission_codes)
 
     def _get(self, user_id: str) -> User:
         user = self.db.query(User).filter(User.id == parse_external_id("usr", user_id)).first()

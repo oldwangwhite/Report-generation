@@ -1,4 +1,4 @@
-﻿import { API_BASE, createAuthHeaders, requestJson } from './request';
+import { API_BASE, createAuthHeaders, requestJson } from './request';
 import type {
     Chapter,
     ChapterContent,
@@ -6,8 +6,12 @@ import type {
     ExportFile,
     ExportFormat,
     Material,
+    ManagedUser,
+    ModelConfig,
+    PageResult,
     Report,
     ReportDetail,
+    RolePermissionsResult,
     StreamEvent,
     Template,
 } from '../types/report';
@@ -151,20 +155,43 @@ function delay<T>(data: T, ms = 450): Promise<T> {
   return new Promise((resolve) => window.setTimeout(() => resolve(data), ms));
 }
 
+function buildQuery(params?: Record<string, string | number | undefined | null>) {
+  const search = new URLSearchParams();
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') search.set(key, String(value));
+  });
+  const query = search.toString();
+  return query ? `?${query}` : '';
+}
+
 /** 查询可用报告模板。 */
 export async function getTemplates(reportType?: string) {
   if (USE_MOCK) {
     return delay(reportType ? MOCK_TEMPLATES.filter((item) => item.reportType === reportType) : MOCK_TEMPLATES);
   }
   const query = reportType ? `?reportType=${reportType}` : '';
-  return requestJson<{ items: Template[] }>(`/api/templates${query}`).then((data) => data.items);
+  return requestJson<PageResult<Template>>(`/api/templates${query}`)
+    .then((data) => data.items)
+    .catch(() => []);
 }
 
 /** 查询可关联的知识库素材。 */
 export async function getMaterials(params?: { major?: string; keyword?: string }) {
   if (USE_MOCK) return delay(MOCK_MATERIALS);
-  const search = new URLSearchParams(params as Record<string, string>).toString();
-  return requestJson<{ items: Material[] }>(`/api/materials?${search}`).then((data) => data.items);
+  return requestJson<PageResult<Material>>(`/api/materials${buildQuery(params)}`)
+    .then((data) => data.items)
+    .catch(() => []);
+}
+
+/** 查询报告列表，普通用户返回本人报告，管理员返回可见报告。 */
+export async function listReports(params?: {
+  page?: number;
+  size?: number;
+  keyword?: string;
+  reportType?: string;
+  status?: string;
+}) {
+  return requestJson<PageResult<Report>>(`/api/reports${buildQuery({ page: 1, size: 20, ...params })}`);
 }
 
 /** 创建报告基础任务。 */
@@ -225,6 +252,14 @@ export async function getReportDetail(report: Report, outline: Chapter[], conten
   return requestJson<ReportDetail>(`/api/reports/${report.reportId}`);
 }
 
+export async function getReportDetailById(reportId: string): Promise<ReportDetail> {
+  return requestJson<ReportDetail>(`/api/reports/${reportId}`);
+}
+
+export async function deleteReport(reportId: string) {
+  return requestJson<void>(`/api/reports/${reportId}`, { method: 'DELETE' });
+}
+
 /** 创建导出任务。 */
 export async function createExport(reportId: string, fileFormat: ExportFormat, templateId?: string) {
   if (USE_MOCK) {
@@ -260,6 +295,122 @@ export async function getExportStatus(reportId: string, exportId: string, fileFo
     }, 900);
   }
   return requestJson<ExportFile>(`/api/reports/${reportId}/exports/${exportId}`);
+}
+
+export async function listReportExports(reportId: string, params?: { page?: number; size?: number; fileFormat?: ExportFormat }) {
+  return requestJson<PageResult<ExportFile>>(
+    `/api/reports/${reportId}/exports${buildQuery({ page: 1, size: 10, ...params })}`,
+  );
+}
+
+export async function reexportReport(reportId: string, fileFormat: ExportFormat) {
+  const task = await createExport(reportId, fileFormat);
+  return getExportStatus(reportId, task.exportId, fileFormat);
+}
+
+export async function listAdminTemplates(params?: { page?: number; size?: number; reportType?: string; status?: string }) {
+  return requestJson<PageResult<Template>>(`/api/templates${buildQuery({ page: 1, size: 50, ...params })}`);
+}
+
+export async function uploadTemplate(payload: { templateName: string; reportType: string; file: File }) {
+  const formData = new FormData();
+  formData.append('templateName', payload.templateName);
+  formData.append('reportType', payload.reportType);
+  formData.append('file', payload.file);
+  return requestJson<Template>('/api/templates', { method: 'POST', body: formData });
+}
+
+export async function updateTemplate(templateId: string, payload: { templateName: string; status: string; structure: Record<string, unknown> }) {
+  return requestJson<Template>(`/api/templates/${templateId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateTemplateStatus(templateId: string, status: 'enabled' | 'disabled') {
+  return requestJson<Template>(`/api/templates/${templateId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function deleteTemplate(templateId: string) {
+  return requestJson<void>(`/api/templates/${templateId}`, { method: 'DELETE' });
+}
+
+export async function listAdminMaterials(params?: { page?: number; size?: number; major?: string; keyword?: string; status?: string }) {
+  return requestJson<PageResult<Material>>(`/api/materials${buildQuery({ page: 1, size: 50, ...params })}`);
+}
+
+export async function uploadMaterial(payload: {
+  materialName: string;
+  materialType: string;
+  major?: string;
+  description?: string;
+  file: File;
+}) {
+  const formData = new FormData();
+  formData.append('materialName', payload.materialName);
+  formData.append('materialType', payload.materialType);
+  if (payload.major) formData.append('major', payload.major);
+  if (payload.description) formData.append('description', payload.description);
+  formData.append('file', payload.file);
+  return requestJson<Material>('/api/materials', { method: 'POST', body: formData });
+}
+
+export async function updateMaterialStatus(materialId: string, status: 'enabled' | 'disabled') {
+  return requestJson<Material>(`/api/materials/${materialId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function deleteMaterial(materialId: string) {
+  return requestJson<void>(`/api/materials/${materialId}`, { method: 'DELETE' });
+}
+
+export async function getModelConfig() {
+  return requestJson<ModelConfig>('/api/admin/model-config');
+}
+
+export async function saveModelConfig(payload: ModelConfig) {
+  return requestJson<ModelConfig>('/api/admin/model-config', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function testModelConfig() {
+  return requestJson<{ available: boolean; latencyMs: number }>('/api/admin/model-config/test', { method: 'POST' });
+}
+
+export async function listUsers(params?: { page?: number; size?: number; keyword?: string; role?: string; status?: string }) {
+  return requestJson<PageResult<ManagedUser>>(`/api/admin/users${buildQuery({ page: 1, size: 50, ...params })}`);
+}
+
+export async function updateUserRole(userId: string, role: ManagedUser['role']) {
+  return requestJson<ManagedUser>(`/api/admin/users/${userId}/role`, {
+    method: 'PATCH',
+    body: JSON.stringify({ role }),
+  });
+}
+
+export async function updateUserStatus(userId: string, status: ManagedUser['status']) {
+  return requestJson<ManagedUser>(`/api/admin/users/${userId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function listRolePermissions() {
+  return requestJson<RolePermissionsResult>('/api/admin/roles/permissions');
+}
+
+export async function updateRolePermissions(role: ManagedUser['role'], permissionCodes: string[]) {
+  return requestJson<RolePermissionsResult>(`/api/admin/roles/${role}/permissions`, {
+    method: 'PUT',
+    body: JSON.stringify({ permissionCodes }),
+  });
 }
 
 /** 下载导出文件；mock 模式直接生成本地文本文件，真实模式走后端 blob。 */

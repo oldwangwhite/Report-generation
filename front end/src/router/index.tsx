@@ -5,6 +5,7 @@ import MyReportsPage from '../pages/MyReports';
 import ReportManagementPage from '../pages/ReportManagement';
 import ReportGenerationPage from '../pages/ReportGeneration';
 import SystemPlaceholderPage, { DashboardPage } from '../pages/SystemPlaceholder';
+import UserManagementPage from '../pages/UserManagement';
 import {
     getDefaultPathByRole,
     getUserRole,
@@ -79,7 +80,7 @@ export default function AppRouter() {
                     path="/admin/admin-users"
                     element={
                         <SuperAdminOnly>
-                            <SystemPlaceholderPage title="管理员权限管理" description="超级管理员分配、调整和停用管理员权限，控制管理端访问范围。" />
+                            <UserManagementPage />
                         </SuperAdminOnly>
                     }
                 />

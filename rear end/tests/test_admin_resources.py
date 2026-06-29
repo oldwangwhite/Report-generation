@@ -1,16 +1,42 @@
-from pathlib import Path
-
-
 def test_normal_user_cannot_access_admin_resources(client, auth_headers):
     urls = [
-        "/api/templates",
-        "/api/materials",
         "/api/admin/model-config",
         "/api/admin/users",
     ]
     for url in urls:
         response = client.get(url, headers=auth_headers).json()
         assert response["code"] == 403
+
+
+def test_normal_user_can_read_templates_and_materials(client, auth_headers):
+    templates = client.get("/api/templates", headers=auth_headers).json()
+    assert templates["code"] == 200
+    assert templates["data"]["total"] >= 1
+
+    materials = client.get("/api/materials", headers=auth_headers).json()
+    assert materials["code"] == 200
+
+
+def test_normal_user_cannot_write_templates_or_materials(client, auth_headers, tmp_path):
+    template_file = tmp_path / "template.docx"
+    template_file.write_bytes(b"template")
+    template_created = client.post(
+        "/api/templates",
+        headers=auth_headers,
+        data={"templateName": "template", "reportType": "summerCheck"},
+        files={"file": ("template.docx", template_file.read_bytes(), "application/octet-stream")},
+    ).json()
+    assert template_created["code"] == 403
+
+    material_file = tmp_path / "standard.pdf"
+    material_file.write_bytes(b"material")
+    material_created = client.post(
+        "/api/materials",
+        headers=auth_headers,
+        data={"materialName": "standard", "materialType": "inspection_report"},
+        files={"file": ("standard.pdf", material_file.read_bytes(), "application/pdf")},
+    ).json()
+    assert material_created["code"] == 403
 
 
 def test_admin_template_lifecycle(client, admin_headers, tmp_path):
@@ -102,12 +128,16 @@ def test_admin_material_lifecycle(client, admin_headers, tmp_path):
     assert deleted["code"] == 200
 
 
-def test_model_config_masks_api_key_and_tests_connection(client, admin_headers):
+def test_model_config_masks_api_key_and_tests_connection(client, admin_headers, monkeypatch):
+    def fake_test_model_connection(db):
+        return {"modelName": "report-model", "reply": "pong"}
+
+    monkeypatch.setattr("app.service.model_config_service.test_model_connection", fake_test_model_connection)
     saved = client.put(
         "/api/admin/model-config",
         headers=admin_headers,
         json={
-            "apiUrl": "https://api.example.com/v1/chat/completions",
+            "apiUrl": "https://llm.local/v1/chat/completions",
             "modelName": "report-model",
             "apiKey": "sk-xxxxxxxxabcd",
             "timeoutSeconds": 120,
@@ -125,6 +155,8 @@ def test_model_config_masks_api_key_and_tests_connection(client, admin_headers):
     tested = client.post("/api/admin/model-config/test", headers=admin_headers).json()
     assert tested["code"] == 200
     assert tested["data"]["available"] is True
+    assert tested["data"]["modelName"] == "report-model"
+    assert tested["data"]["reply"] == "pong"
     assert tested["data"]["latencyMs"] >= 0
 
 
@@ -156,3 +188,37 @@ def test_only_super_admin_can_manage_users(client, admin_headers, super_headers)
     ).json()
     assert disabled["code"] == 200
     assert disabled["data"]["status"] == "disabled"
+
+
+def test_super_admin_can_update_role_permissions(client, auth_headers, super_headers):
+    listed = client.get("/api/admin/roles/permissions", headers=super_headers).json()
+    assert listed["code"] == 200
+    assert {item["code"] for item in listed["data"]["availablePermissions"]} >= {
+        "report.generate",
+        "report.export",
+        "admin.resources",
+        "user.manage",
+    }
+
+    updated = client.put(
+        "/api/admin/roles/user/permissions",
+        headers=super_headers,
+        json={"permissionCodes": ["report.export"]},
+    ).json()
+    assert updated["code"] == 200
+    user_role = next(item for item in updated["data"]["roles"] if item["role"] == "user")
+    assert user_role["permissionCodes"] == ["report.export"]
+
+    denied = client.post(
+        "/api/reports",
+        headers=auth_headers,
+        json={
+            "reportName": "权限测试报告",
+            "reportType": "summerCheck",
+            "topic": "权限测试",
+            "major": "电气",
+            "plant": "XX电厂",
+            "year": 2026,
+        },
+    ).json()
+    assert denied["code"] == 403

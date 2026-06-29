@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
+from app.api.v1.reports import report_generate_user
 from app.core.response import api_response
 from app.core.security import CurrentUser, get_current_user
 from app.db.session import get_db
@@ -16,7 +17,7 @@ def generate_outline(
     payload: OutlineGenerateRequest,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(report_generate_user),
 ):
     data = OutlineService(db).generate_outline(report_id, payload, current_user)
     return api_response(data, request)
@@ -28,7 +29,7 @@ def save_outline(
     payload: OutlineSaveRequest,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(report_generate_user),
 ):
     data = OutlineService(db).save_outline(report_id, payload, current_user)
     return api_response(data, request)

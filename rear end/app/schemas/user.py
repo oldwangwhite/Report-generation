@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class UserRoleUpdateRequest(BaseModel):
@@ -7,3 +7,7 @@ class UserRoleUpdateRequest(BaseModel):
 
 class UserStatusUpdateRequest(BaseModel):
     status: str
+
+
+class RolePermissionsUpdateRequest(BaseModel):
+    permission_codes: list[str] = Field(default_factory=list, alias="permissionCodes")

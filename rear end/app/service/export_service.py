@@ -7,6 +7,7 @@ from app.core.security import CurrentUser
 from app.entity.content import ReportChapterContent
 from app.entity.export import ReportExport
 from app.entity.outline import ReportOutline
+from app.entity.template import ReportTemplate
 from app.export.docx_builder import DocxBuilder
 from app.export.file_storage import export_dir, safe_report_filename
 from app.export.markdown_builder import build_markdown
@@ -42,7 +43,7 @@ class ExportService:
         filename = safe_report_filename(report.report_name, file_format)
         path = export_dir() / f"{item.id:03d}_{filename}"
         try:
-            self._build_file(report, file_format, path)
+            self._build_file(report, file_format, path, payload.template_id)
             item.file_name = filename
             item.file_path = str(path)
             item.file_size = path.stat().st_size
@@ -88,7 +89,7 @@ class ExportService:
         }
         return path, item.file_name or path.name, media_types.get(item.file_format, "application/octet-stream")
 
-    def _build_file(self, report, file_format: str, path: Path) -> None:
+    def _build_file(self, report, file_format: str, path: Path, template_id: str | None = None) -> None:
         outline = (
             self.db.query(ReportOutline)
             .filter(ReportOutline.report_id == report.id, ReportOutline.deleted_flag == 0)
@@ -105,11 +106,31 @@ class ExportService:
         )
         contents_by_chapter = {content.chapter_id: content for content in contents}
         if file_format == "docx":
-            DocxBuilder().build(report, outline, contents_by_chapter, path)
+            template = self._select_template(report.report_type, template_id)
+            DocxBuilder().build(report, outline, contents_by_chapter, path, template)
         elif file_format == "md":
             build_markdown(report, outline, contents_by_chapter, path)
         elif file_format == "txt":
             build_text(report, outline, contents_by_chapter, path)
+
+    def _select_template(self, report_type: str, template_id: str | None = None) -> ReportTemplate | None:
+        query = self.db.query(ReportTemplate).filter(
+            ReportTemplate.deleted_flag == 0,
+            ReportTemplate.status == "enabled",
+        )
+        if template_id:
+            try:
+                parsed_id = parse_external_id("tpl", template_id)
+            except ValueError:
+                parsed_id = -1
+            item = query.filter(ReportTemplate.id == parsed_id).first()
+            if item is not None:
+                return item
+        return (
+            query.filter(ReportTemplate.report_type == report_type)
+            .order_by(ReportTemplate.id.desc())
+            .first()
+        )
 
     def _get_export_item(self, report_id: int, export_id: str) -> ReportExport:
         item = self.exports.get_active(report_id, parse_external_id("exp", export_id))

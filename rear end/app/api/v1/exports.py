@@ -8,8 +8,17 @@ from app.db.session import get_db
 from app.export.file_storage import content_disposition
 from app.schemas.export import ExportCreateRequest
 from app.service.export_service import ExportService
+from app.service.permission_service import require_permission
 
 router = APIRouter(prefix="/reports/{report_id}/exports", tags=["exports"])
+
+
+def report_export_user(
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> CurrentUser:
+    require_permission(db, current_user, "report.export")
+    return current_user
 
 
 @router.post("")
@@ -18,7 +27,7 @@ def create_export(
     payload: ExportCreateRequest,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(report_export_user),
 ):
     data = ExportService(db).create_export(report_id, payload, current_user)
     return api_response(data, request)
@@ -55,7 +64,7 @@ def download_export(
     report_id: str,
     export_id: str,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(report_export_user),
 ):
     path, filename, media_type = ExportService(db).get_download_path(
         report_id, export_id, current_user
