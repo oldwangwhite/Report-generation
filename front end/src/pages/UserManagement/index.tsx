@@ -10,6 +10,7 @@ import {
     updateUserStatus,
 } from '../../services/reportService';
 import type { ManagedUser, RolePermissionItem, RolePermissionsResult } from '../../types/report';
+import { formatDateTimeMinute } from '../../utils/datetime';
 import '../ReportManagement/style.css';
 
 const { Title, Text, Paragraph } = Typography;
@@ -161,7 +162,7 @@ export default function UserManagementPage() {
                 </Space>
             ),
         },
-        { title: '创建时间', dataIndex: 'createdAt', width: 180, render: (value?: string) => value || '-' },
+        { title: '创建时间', dataIndex: 'createdAt', width: 150, render: (value?: string) => formatDateTimeMinute(value) },
     ];
 
     return (

@@ -39,6 +39,8 @@ export interface Report {
   major?: string;
   plant?: string;
   year?: number;
+  templateId?: string | null;
+  materialIds?: string[];
   status: ReportStatus;
   createdBy?: string;
   createdAt?: string;

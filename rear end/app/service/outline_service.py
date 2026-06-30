@@ -1,9 +1,10 @@
 from sqlalchemy.orm import Session
 
-from app.ai.outline_generator import default_outline, flatten_outline
+from app.ai.outline_generator import flatten_outline, outline_from_template_structure
 from app.core.errors import BusinessError, NotFoundError
 from app.core.security import CurrentUser
 from app.entity.outline import ReportOutline
+from app.entity.template import ReportTemplate
 from app.repository.outline_repository import OutlineRepository
 from app.service.report_service import REPORT_TYPES, ReportService
 from app.utils.id_utils import parse_external_id, to_external_id
@@ -25,13 +26,23 @@ class OutlineService:
                 "参数错误",
                 {"field": "reportType", "reason": "不支持的报告类型"},
             )
+        selected_template = self._resolve_template(report, payload.template_id, report_type)
+        if selected_template:
+            if selected_template.report_type != report_type:
+                raise BusinessError(400, "参数错误", {"field": "templateId", "reason": "模板类型与报告类型不匹配"})
+            report.template_id = selected_template.id
+        report.report_type = report_type
+        if payload.material_ids:
+            report.material_ids = [parse_external_id("mat", item) for item in payload.material_ids if item]
+
         old = self.outlines.list_active(report.id)
         for chapter in old:
             chapter.deleted_flag = 1
             self.db.add(chapter)
         self.db.flush()
 
-        flattened = flatten_outline(default_outline(report_type))
+        structure = selected_template.structure if selected_template else None
+        flattened = flatten_outline(outline_from_template_structure(structure, report_type))
         created: list[ReportOutline] = []
         index_to_id: dict[int, int] = {}
         for index, item in enumerate(flattened):
@@ -60,10 +71,15 @@ class OutlineService:
         existing = {chapter.id: chapter for chapter in self.outlines.list_active(report.id)}
         submitted_ids: set[int] = set()
         pending_parent_links: list[tuple[ReportOutline, str | None]] = []
+        id_by_client_key: dict[str, int] = {}
         chapters: list[ReportOutline] = []
 
         for item in payload.outline:
-            chapter_id = parse_external_id("chap", item.chapter_id) if item.chapter_id else None
+            chapter_id = (
+                parse_external_id("chap", item.chapter_id)
+                if self._is_persisted_chapter_id(item.chapter_id)
+                else None
+            )
             if chapter_id is not None:
                 chapter = existing.get(chapter_id)
                 if chapter is None:
@@ -83,22 +99,19 @@ class OutlineService:
             chapter.title = item.title
             chapter.level = item.level
             chapter.sort_order = item.sort_order
+            if item.chapter_id:
+                id_by_client_key[item.chapter_id] = chapter.id
             pending_parent_links.append((chapter, item.parent_id))
             chapters.append(chapter)
 
-        new_by_temp_parent = {
-            original.parent_id: chapter
-            for original, chapter in zip(payload.outline, chapters)
-            if original.chapter_id is None and original.parent_id
-        }
         id_by_external = {to_external_id("chap", chapter.id): chapter.id for chapter in chapters}
         for chapter, parent_external in pending_parent_links:
             if parent_external is None:
                 chapter.parent_id = None
             elif parent_external in id_by_external:
                 chapter.parent_id = id_by_external[parent_external]
-            elif parent_external in new_by_temp_parent:
-                chapter.parent_id = new_by_temp_parent[parent_external].id
+            elif parent_external in id_by_client_key:
+                chapter.parent_id = id_by_client_key[parent_external]
             else:
                 chapter.parent_id = parse_external_id("chap", parent_external)
 
@@ -110,6 +123,27 @@ class OutlineService:
         renumbered = renumber_outline(chapters)
         self.db.commit()
         return {"reportId": report_id, "outline": [self._chapter_item(item) for item in renumbered]}
+
+    def _is_persisted_chapter_id(self, chapter_id: str | None) -> bool:
+        if not chapter_id:
+            return False
+        return chapter_id.isdigit() or chapter_id.startswith("chap_")
+
+    def _resolve_template(
+        self,
+        report,
+        template_id: str | None,
+        report_type: str,
+    ) -> ReportTemplate | None:
+        parsed_template_id = parse_external_id("tpl", template_id) if template_id else report.template_id
+        query = self.db.query(ReportTemplate).filter(ReportTemplate.deleted_flag == 0)
+        if parsed_template_id:
+            return query.filter(ReportTemplate.id == parsed_template_id).first()
+        return (
+            query.filter(ReportTemplate.report_type == report_type, ReportTemplate.status == "enabled")
+            .order_by(ReportTemplate.id.desc())
+            .first()
+        )
 
     def _chapter_item(self, chapter: ReportOutline) -> dict:
         return {

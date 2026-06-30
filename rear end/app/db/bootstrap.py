@@ -1,12 +1,15 @@
-from sqlalchemy import or_
+from sqlalchemy import inspect, or_, text
 from sqlalchemy.orm import Session
 
+from app.ai.outline_generator import default_outline
 from app.entity.template import ReportTemplate
 from app.entity.user import Role, User
 from app.service.permission_service import ensure_default_permissions
 
 
 def seed_reference_data(db: Session) -> None:
+    _ensure_report_columns(db)
+
     role_defs = [
         ("standard_user", "普通用户"),
         ("admin", "管理员"),
@@ -32,11 +35,7 @@ def seed_reference_data(db: Session) -> None:
         (4, "super", "超级管理员", "super_admin"),
     ]
     for user_id, username, display_name, role_name in users:
-        user = (
-            db.query(User)
-            .filter(or_(User.id == user_id, User.username == username))
-            .first()
-        )
+        user = db.query(User).filter(or_(User.id == user_id, User.username == username)).first()
         if user is None:
             db.add(
                 User(
@@ -54,14 +53,18 @@ def seed_reference_data(db: Session) -> None:
 
     for report_type, name in [
         ("summerCheck", "迎峰度夏默认模板"),
-        ("coalInventoryAudit", "煤场库存盘点默认模板"),
+        ("coalInventoryAudit", "煤库存审计默认模板"),
     ]:
+        structure = {
+            "titleStyle": "Title",
+            "headingStyle": "Heading 1",
+            "bodyStyle": "Normal",
+            "tableStyle": "Table Grid",
+            "outline": default_outline(report_type),
+        }
         template = (
             db.query(ReportTemplate)
-            .filter(
-                ReportTemplate.report_type == report_type,
-                ReportTemplate.deleted_flag == 0,
-            )
+            .filter(ReportTemplate.report_type == report_type, ReportTemplate.deleted_flag == 0)
             .first()
         )
         if template is None:
@@ -71,16 +74,34 @@ def seed_reference_data(db: Session) -> None:
                     report_type=report_type,
                     file_name=f"{report_type}.docx",
                     file_path="",
-                    structure={
-                        "titleStyle": "Title",
-                        "headingStyle": "Heading 1",
-                        "bodyStyle": "Normal",
-                        "tableStyle": "Table Grid",
-                    },
+                    structure=structure,
                     status="enabled",
                     created_by=3,
                 )
             )
+        else:
+            existing_structure = dict(template.structure or {})
+            changed = False
+            for key, value in structure.items():
+                if key not in existing_structure or not existing_structure.get(key):
+                    existing_structure[key] = value
+                    changed = True
+            if changed:
+                template.structure = existing_structure
+                db.add(template)
 
     ensure_default_permissions(db)
     db.commit()
+
+
+def _ensure_report_columns(db: Session) -> None:
+    inspector = inspect(db.bind)
+    columns = {column["name"] for column in inspector.get_columns("report_records")}
+    dialect = db.bind.dialect.name if db.bind else "sqlite"
+    if "template_id" not in columns:
+        column_type = "INTEGER" if dialect == "sqlite" else "BIGINT NULL"
+        db.execute(text(f"ALTER TABLE report_records ADD COLUMN template_id {column_type}"))
+    if "material_ids" not in columns:
+        column_type = "JSON DEFAULT '[]'" if dialect == "sqlite" else "JSON NULL"
+        db.execute(text(f"ALTER TABLE report_records ADD COLUMN material_ids {column_type}"))
+    db.flush()

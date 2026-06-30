@@ -217,7 +217,10 @@ export async function createReport(payload: CreateReportPayload): Promise<Report
 }
 
 /** 调用后端生成报告大纲。 */
-export async function generateOutline(reportId: string, payload: { reportType: string; topic: string; templateId?: string }) {
+export async function generateOutline(
+  reportId: string,
+  payload: { reportType: string; topic: string; templateId?: string; materialIds?: string[] },
+) {
   if (USE_MOCK) return delay(MOCK_OUTLINE.map((item) => ({ ...item, reportId })));
   return requestJson<{ reportId: string; outline: Chapter[] }>(`/api/reports/${reportId}/outline/generate`, {
     method: 'POST',

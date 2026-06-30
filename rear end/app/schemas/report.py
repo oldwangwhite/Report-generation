@@ -8,6 +8,8 @@ class ReportCreateRequest(BaseModel):
     major: str | None = None
     plant: str | None = None
     year: int | None = None
+    template_id: str | None = Field(default=None, alias="templateId")
+    material_ids: list[str] = Field(default_factory=list, alias="materialIds")
 
 
 class ReportUpdateRequest(BaseModel):
@@ -16,3 +18,5 @@ class ReportUpdateRequest(BaseModel):
     major: str | None = None
     plant: str | None = None
     year: int | None = None
+    template_id: str | None = Field(default=None, alias="templateId")
+    material_ids: list[str] | None = Field(default=None, alias="materialIds")

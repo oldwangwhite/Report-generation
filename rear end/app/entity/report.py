@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Integer, String, SmallInteger, func
+from sqlalchemy import Column, DateTime, Integer, JSON, String, SmallInteger, func
 
 from app.db.base import Base
 from app.db.types import IdType
@@ -14,6 +14,8 @@ class ReportRecord(Base):
     major = Column(String(100))
     plant = Column(String(200))
     year = Column(Integer)
+    template_id = Column(IdType, nullable=True, index=True)
+    material_ids = Column(JSON, nullable=False, default=list)
     created_by = Column(IdType, nullable=False, index=True)
     status = Column(String(50), nullable=False, default="draft", index=True)
     generated_at = Column(DateTime)

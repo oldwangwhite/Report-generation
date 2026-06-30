@@ -40,6 +40,8 @@ def load_generation_config(db: Session) -> LLMRuntimeConfig | None:
     model_name = str(data.get("modelName") or "").strip()
     if _is_placeholder_url(api_url) or not model_name:
         return None
+    if _looks_like_unsupported_deepseek_model(api_url, model_name):
+        return None
 
     return LLMRuntimeConfig(
         api_url=api_url,
@@ -82,7 +84,7 @@ def generate_chapter_with_llm(
     if config is None:
         return None
 
-    material_context = build_material_context(db, report.major)
+    material_context = build_material_context(db, report.major, report.material_ids or [])
     messages = [
         {
             "role": "system",
@@ -123,11 +125,16 @@ def call_chat_completion(config: LLMRuntimeConfig, messages: list[dict[str, str]
         "stream": False,
     }
     try:
+        timeout = httpx.Timeout(
+            timeout=min(config.timeout_seconds, 6),
+            connect=3,
+            read=min(config.timeout_seconds, 6),
+        )
         response = httpx.post(
             config.api_url,
             headers=headers,
             json=payload,
-            timeout=config.timeout_seconds,
+            timeout=timeout,
         )
     except httpx.TimeoutException as exc:
         raise LLMCallError("模型接口连接超时，请检查地址或超时时间") from exc
@@ -172,6 +179,14 @@ def _normalize_timeout(value: Any) -> int:
 def _is_placeholder_url(api_url: str) -> bool:
     normalized = api_url.lower()
     return not normalized or "api.example.com" in normalized
+
+
+def _looks_like_unsupported_deepseek_model(api_url: str, model_name: str) -> bool:
+    normalized_url = api_url.lower()
+    normalized_model = model_name.lower().strip()
+    if "api.deepseek.com" not in normalized_url:
+        return False
+    return normalized_model not in {"deepseek-chat", "deepseek-reasoner"}
 
 
 def _extract_content(data: dict[str, Any]) -> str:

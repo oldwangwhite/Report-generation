@@ -75,7 +75,7 @@ class ContentGenerationService:
                 except (LLMConfigError, LLMCallError) as exc:
                     yield self._mark_failed(report, chapter, str(exc))
                     return
-                tables = [generate_table(chapter)] if chapter.level == 1 else []
+                tables = [generate_table(report, chapter, content)] if chapter.level == 1 else []
                 self.contents.upsert(
                     report_id=report.id,
                     chapter_id=chapter.id,
@@ -126,11 +126,13 @@ class ContentGenerationService:
                 },
             )
 
-        report.status = "generated"
-        report.generated_at = datetime.now(timezone.utc)
+        final_status = "generated" if self._all_chapters_done(report.id) else "outlineGenerated"
+        report.status = final_status
+        if final_status == "generated":
+            report.generated_at = datetime.now(timezone.utc)
         self.db.add(report)
         self.db.commit()
-        yield self._event("done", {"reportId": report_id, "status": "generated"})
+        yield self._event("done", {"reportId": report_id, "status": final_status})
 
     def stream_regenerate(
         self, report_id: str, chapter_id: str, payload, user: CurrentUser
@@ -147,6 +149,9 @@ class ContentGenerationService:
         force_overwrite: bool,
         extra_prompt: str | None,
     ) -> Iterable[str]:
+        report.status = "generating"
+        self.db.add(report)
+        self.db.commit()
         yield self._event("chapterStart", chapter_start_payload(report, chapter))
         existing = self.contents.get_by_chapter(report.id, chapter.id)
         if existing and existing.manual_edited and not force_overwrite:
@@ -158,7 +163,7 @@ class ContentGenerationService:
             except (LLMConfigError, LLMCallError) as exc:
                 yield self._mark_failed(report, chapter, str(exc))
                 return
-            tables = [generate_table(chapter)] if chapter.level == 1 else []
+            tables = [generate_table(report, chapter, content)] if chapter.level == 1 else []
             self.contents.upsert(
                 report_id=report.id,
                 chapter_id=chapter.id,
@@ -196,7 +201,13 @@ class ContentGenerationService:
             "chapterDone",
             {"reportId": report_id, "chapterId": to_external_id("chap", chapter.id), "status": "done"},
         )
-        yield self._event("done", {"reportId": report_id, "status": "generated"})
+        final_status = "generated" if self._all_chapters_done(report.id) else "outlineGenerated"
+        report.status = final_status
+        if final_status == "generated":
+            report.generated_at = datetime.now(timezone.utc)
+        self.db.add(report)
+        self.db.commit()
+        yield self._event("done", {"reportId": report_id, "status": final_status})
 
     def _generate_chapter_content(
         self,
@@ -204,9 +215,13 @@ class ContentGenerationService:
         chapter: ReportOutline,
         extra_prompt: str | None = None,
     ) -> str:
-        model_content = generate_chapter_with_llm(self.db, report, chapter, extra_prompt)
-        if model_content:
-            return model_content
+        if not getattr(report, "_skip_llm_generation", False):
+            try:
+                model_content = generate_chapter_with_llm(self.db, report, chapter, extra_prompt)
+                if model_content:
+                    return model_content
+            except (LLMConfigError, LLMCallError):
+                setattr(report, "_skip_llm_generation", True)
         return generate_chapter_text(report, chapter, extra_prompt)
 
     def _mark_failed(self, report, chapter: ReportOutline, message: str) -> str:
@@ -223,6 +238,25 @@ class ContentGenerationService:
                 "message": message,
             },
         )
+
+    def _all_chapters_done(self, report_id: int) -> bool:
+        total = (
+            self.db.query(ReportOutline)
+            .filter(ReportOutline.report_id == report_id, ReportOutline.deleted_flag == 0)
+            .count()
+        )
+        if total == 0:
+            return False
+        unfinished = (
+            self.db.query(ReportOutline)
+            .filter(
+                ReportOutline.report_id == report_id,
+                ReportOutline.deleted_flag == 0,
+                ReportOutline.status != "done",
+            )
+            .count()
+        )
+        return unfinished == 0
 
     def _get_chapter(self, report_id: int, chapter_id: str) -> ReportOutline:
         parsed = parse_external_id("chap", chapter_id)

@@ -100,28 +100,28 @@ class ExportService:
         )
         contents_by_chapter = {content.chapter_id: content for content in contents}
         if file_format == "docx":
-            template = self._select_template(report.report_type, template_id)
+            template = self._select_template(report, template_id)
             DocxBuilder().build(report, outline, contents_by_chapter, path, template)
         elif file_format == "md":
             build_markdown(report, outline, contents_by_chapter, path)
         elif file_format == "txt":
             build_text(report, outline, contents_by_chapter, path)
 
-    def _select_template(self, report_type: str, template_id: str | None = None) -> ReportTemplate | None:
+    def _select_template(self, report, template_id: str | None = None) -> ReportTemplate | None:
         query = self.db.query(ReportTemplate).filter(
             ReportTemplate.deleted_flag == 0,
             ReportTemplate.status == "enabled",
         )
-        if template_id:
+        if template_id or report.template_id:
             try:
-                parsed_id = parse_external_id("tpl", template_id)
-            except ValueError:
+                parsed_id = parse_external_id("tpl", template_id) if template_id else report.template_id
+            except Exception:
                 parsed_id = -1
-            item = query.filter(ReportTemplate.id == parsed_id).first()
+            item = query.filter(ReportTemplate.id == parsed_id, ReportTemplate.report_type == report.report_type).first()
             if item is not None:
                 return item
         return (
-            query.filter(ReportTemplate.report_type == report_type)
+            query.filter(ReportTemplate.report_type == report.report_type)
             .order_by(ReportTemplate.id.desc())
             .first()
         )
