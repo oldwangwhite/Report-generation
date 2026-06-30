@@ -161,12 +161,9 @@ def main() -> int:
         assert output.stat().st_size > 0
         print(f"PASS download file {output}")
 
-        require_ok(client.get("/api/templates", headers=USER_HEADERS), "user templates")
-        require_ok(client.get("/api/materials", headers=USER_HEADERS), "user materials")
-
-        forbidden = client.get("/api/admin/model-config", headers=USER_HEADERS).json()
+        forbidden = client.get("/api/templates", headers=USER_HEADERS).json()
         assert forbidden["code"] == 403
-        print("PASS user forbidden admin config")
+        print("PASS user forbidden templates")
 
         require_ok(client.get("/api/templates", headers=ADMIN_HEADERS), "admin templates")
         require_ok(client.get("/api/materials", headers=ADMIN_HEADERS), "admin materials")

@@ -10,6 +10,7 @@ from app.ai.chapter_generator import (
     generate_chapter_text,
     generate_table,
 )
+from app.ai.model_client import LLMCallError, LLMConfigError, generate_chapter_with_llm
 from app.core.errors import NotFoundError
 from app.core.security import CurrentUser
 from app.entity.outline import ReportOutline
@@ -69,7 +70,11 @@ class ContentGenerationService:
                 content = existing.content
                 tables = existing.tables or []
             else:
-                content = generate_chapter_text(report, chapter)
+                try:
+                    content = self._generate_chapter_content(report, chapter)
+                except (LLMConfigError, LLMCallError) as exc:
+                    yield self._mark_failed(report, chapter, str(exc))
+                    return
                 tables = [generate_table(chapter)] if chapter.level == 1 else []
                 self.contents.upsert(
                     report_id=report.id,
@@ -148,7 +153,11 @@ class ContentGenerationService:
             content = existing.content
             tables = existing.tables or []
         else:
-            content = generate_chapter_text(report, chapter, extra_prompt)
+            try:
+                content = self._generate_chapter_content(report, chapter, extra_prompt)
+            except (LLMConfigError, LLMCallError) as exc:
+                yield self._mark_failed(report, chapter, str(exc))
+                return
             tables = [generate_table(chapter)] if chapter.level == 1 else []
             self.contents.upsert(
                 report_id=report.id,
@@ -158,6 +167,9 @@ class ContentGenerationService:
                 manual_edited=False,
                 status="done",
             )
+        chapter.status = "done"
+        self.db.add(chapter)
+        self.db.commit()
         for delta in chunk_text(content):
             yield self._event(
                 "chunk",
@@ -185,6 +197,32 @@ class ContentGenerationService:
             {"reportId": report_id, "chapterId": to_external_id("chap", chapter.id), "status": "done"},
         )
         yield self._event("done", {"reportId": report_id, "status": "generated"})
+
+    def _generate_chapter_content(
+        self,
+        report,
+        chapter: ReportOutline,
+        extra_prompt: str | None = None,
+    ) -> str:
+        model_content = generate_chapter_with_llm(self.db, report, chapter, extra_prompt)
+        if model_content:
+            return model_content
+        return generate_chapter_text(report, chapter, extra_prompt)
+
+    def _mark_failed(self, report, chapter: ReportOutline, message: str) -> str:
+        chapter.status = "failed"
+        report.status = "generateFailed"
+        self.db.add(chapter)
+        self.db.add(report)
+        self.db.commit()
+        return self._event(
+            "error",
+            {
+                "reportId": to_external_id("rpt", report.id),
+                "chapterId": to_external_id("chap", chapter.id),
+                "message": message,
+            },
+        )
 
     def _get_chapter(self, report_id: int, chapter_id: str) -> ReportOutline:
         parsed = parse_external_id("chap", chapter_id)

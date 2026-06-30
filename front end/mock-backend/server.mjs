@@ -85,6 +85,16 @@ function sendJson(response, data, statusCode = 200) {
     response.end(JSON.stringify({ code: 200, data, message: 'success' }));
 }
 
+function sendError(response, code, message, data = null, statusCode = 200) {
+    response.writeHead(statusCode, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
+        'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+    });
+    response.end(JSON.stringify({ code, data, message }));
+}
+
 function sendOptions(response) {
     response.writeHead(204, {
         'Access-Control-Allow-Origin': '*',
@@ -259,12 +269,17 @@ const server = http.createServer(async (request, response) => {
     if (request.method === 'POST' && exportCreateMatch) {
         const reportId = exportCreateMatch[1];
         const body = await readBody(request);
+        const fileFormat = body.fileFormat || 'docx';
+        if (!['docx', 'md', 'txt'].includes(fileFormat)) {
+            sendError(response, 400, '参数错误', { field: 'fileFormat', reason: '不支持的导出格式' });
+            return;
+        }
         const exportId = `exp_${Date.now()}`;
         const exportFile = {
             exportId,
             reportId,
-            fileName: `测试报告.${body.fileFormat}`,
-            fileFormat: body.fileFormat,
+            fileName: `测试报告.${fileFormat}`,
+            fileFormat,
             fileSize: 245760,
             downloadUrl: `/api/reports/${reportId}/exports/${exportId}/download`,
             status: 'exported',

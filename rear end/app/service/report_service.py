@@ -31,7 +31,12 @@ class ReportService:
             status="draft",
         )
         saved = self.reports.create(report)
-        return self._report_detail(saved)
+        return {
+            "reportId": to_external_id("rpt", saved.id),
+            "reportName": saved.report_name,
+            "reportType": saved.report_type,
+            "status": saved.status,
+        }
 
     def list_reports(
         self,
@@ -123,6 +128,7 @@ class ReportService:
             "status": report.status,
             "generatedAt": isoformat(report.generated_at),
             "createdAt": isoformat(report.created_at),
+            "updatedAt": isoformat(report.updated_at),
         }
 
     def _report_detail(self, report: ReportRecord) -> dict:

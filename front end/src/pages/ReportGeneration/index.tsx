@@ -139,14 +139,8 @@ export default function ReportGenerationPage() {
   });
 
   useEffect(() => {
-    Promise.all([getTemplates(), getMaterials()])
-      .then(([templateItems, materialItems]) => {
-        setTemplates(templateItems);
-        setMaterials(materialItems);
-      })
-      .catch((error: Error) => {
-        message.error(error.message || '模板和素材加载失败');
-      });
+    getTemplates().then(setTemplates);
+    getMaterials().then(setMaterials);
   }, []);
 
   useEffect(() => {
@@ -163,10 +157,11 @@ export default function ReportGenerationPage() {
   const handleCreate = async () => {
     const values = await form.validateFields();
     const created = await createReport(values);
-    setReport(created);
+    const fullReport = { ...values, ...created };
+    setReport(fullReport);
     setStep(1);
     message.success('报告创建成功');
-    return created;
+    return fullReport;
   };
 
   const handleGenerateOutline = async () => {
@@ -174,7 +169,7 @@ export default function ReportGenerationPage() {
     const values = form.getFieldsValue();
     const nextOutline = await generateOutline(currentReport.reportId, {
       reportType: currentReport.reportType,
-      topic: currentReport.topic,
+      topic: currentReport.topic || values.topic,
       templateId: values.templateId,
     });
     setOutline(nextOutline);
@@ -285,18 +280,13 @@ export default function ReportGenerationPage() {
       message.warning('请先创建报告');
       return;
     }
-    try {
-      setExporting(true);
-      const values = form.getFieldsValue();
-      const task = await createExport(report.reportId, fileFormat, values.templateId);
-      const result = await getExportStatus(report.reportId, task.exportId, fileFormat);
-      setLatestExport(result);
-      message.success(`${fileFormat.toUpperCase()} 导出完成`);
-    } catch (error) {
-      message.error(error instanceof Error ? error.message : '导出失败');
-    } finally {
-      setExporting(false);
-    }
+    setExporting(true);
+    const values = form.getFieldsValue();
+    const task = await createExport(report.reportId, fileFormat, values.templateId);
+    const result = await getExportStatus(report.reportId, task.exportId, fileFormat);
+    setLatestExport(result);
+    setExporting(false);
+    message.success(`${fileFormat.toUpperCase()} 导出完成`);
   };
 
   const handleLoadPreview = async () => {
@@ -632,9 +622,6 @@ function PreviewPanel(props: {
           <Radio.Group value={format} onChange={(event) => setFormat(event.target.value)}>
             <Space direction="vertical">
               <Radio value="docx">DOCX Word</Radio>
-              <Radio value="pdf" disabled>
-                PDF（后端暂未开放）
-              </Radio>
               <Radio value="md">Markdown</Radio>
               <Radio value="txt">TXT 文本</Radio>
             </Space>

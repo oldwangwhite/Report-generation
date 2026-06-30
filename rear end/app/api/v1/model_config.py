@@ -16,7 +16,12 @@ def get_model_config(request: Request, db: Session = Depends(get_db), current_us
 
 
 @router.put("")
-def save_model_config(payload: ModelConfigSaveRequest, request: Request, db: Session = Depends(get_db), current_user=Depends(admin_user)):
+def save_model_config(
+    payload: ModelConfigSaveRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user=Depends(admin_user),
+):
     return api_response(ModelConfigService(db).save_config(payload, current_user), request)
 
 

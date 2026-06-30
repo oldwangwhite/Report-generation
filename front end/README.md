@@ -48,7 +48,7 @@ role=admin -> /admin/reports
 - 全文生成/重新生成
 - 章节内容编辑与保存
 - 报告预览
-- 多格式导出：`docx`、`pdf`、`md`、`txt`
+- 多格式导出：`docx`、`md`、`txt`
 
 访问路径：
 
@@ -67,7 +67,7 @@ role=admin -> /admin/reports
 - 报告记录列表
 - 报告详情抽屉
 - 下载最新文件交互
-- 重新导出 PDF、DOCX、MD、TXT
+- 重新导出 DOCX、MD、TXT
 - 模板管理页面
 - 素材管理页面
 - 模型配置页面

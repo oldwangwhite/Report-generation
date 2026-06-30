@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.entity.template import ReportTemplate
 from app.entity.user import Role, User
+from app.service.permission_service import ensure_default_permissions
 
 
 def seed_reference_data(db: Session) -> None:
@@ -18,6 +19,10 @@ def seed_reference_data(db: Session) -> None:
             role = Role(name=name, display_name=display_name, description=display_name)
             db.add(role)
             db.flush()
+        else:
+            role.display_name = display_name
+            role.description = display_name
+            db.add(role)
         roles[name] = role
 
     users = [
@@ -43,10 +48,13 @@ def seed_reference_data(db: Session) -> None:
                     is_active=True,
                 )
             )
+        else:
+            user.display_name = user.display_name or display_name
+            db.add(user)
 
     for report_type, name in [
         ("summerCheck", "迎峰度夏默认模板"),
-        ("coalInventoryAudit", "煤库存审计默认模板"),
+        ("coalInventoryAudit", "煤场库存盘点默认模板"),
     ]:
         template = (
             db.query(ReportTemplate)
@@ -64,7 +72,8 @@ def seed_reference_data(db: Session) -> None:
                     file_name=f"{report_type}.docx",
                     file_path="",
                     structure={
-                        "titleStyle": "Heading1",
+                        "titleStyle": "Title",
+                        "headingStyle": "Heading 1",
                         "bodyStyle": "Normal",
                         "tableStyle": "Table Grid",
                     },
@@ -72,4 +81,6 @@ def seed_reference_data(db: Session) -> None:
                     created_by=3,
                 )
             )
+
+    ensure_default_permissions(db)
     db.commit()

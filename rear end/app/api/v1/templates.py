@@ -5,13 +5,18 @@ from app.core.response import api_response, page_result
 from app.core.security import CurrentUser, get_current_user, require_admin
 from app.db.session import get_db
 from app.schemas.template import StatusUpdateRequest, TemplateUpdateRequest
+from app.service.permission_service import require_permission
 from app.service.template_service import TemplateService
 
 router = APIRouter(prefix="/templates", tags=["templates"])
 
 
-def admin_user(current_user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+def admin_user(
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> CurrentUser:
     require_admin(current_user)
+    require_permission(db, current_user, "admin.resources")
     return current_user
 
 
@@ -30,7 +35,12 @@ def list_templates(
 
 
 @router.get("/{template_id}")
-def get_template(template_id: str, request: Request, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+def get_template(
+    template_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     return api_response(TemplateService(db).get_template(template_id), request)
 
 
@@ -48,16 +58,33 @@ def upload_template(
 
 
 @router.put("/{template_id}")
-def update_template(template_id: str, payload: TemplateUpdateRequest, request: Request, db: Session = Depends(get_db), current_user=Depends(admin_user)):
+def update_template(
+    template_id: str,
+    payload: TemplateUpdateRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user=Depends(admin_user),
+):
     return api_response(TemplateService(db).update_template(template_id, payload), request)
 
 
 @router.patch("/{template_id}/status")
-def update_template_status(template_id: str, payload: StatusUpdateRequest, request: Request, db: Session = Depends(get_db), current_user=Depends(admin_user)):
+def update_template_status(
+    template_id: str,
+    payload: StatusUpdateRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user=Depends(admin_user),
+):
     return api_response(TemplateService(db).update_status(template_id, payload.status), request)
 
 
 @router.delete("/{template_id}")
-def delete_template(template_id: str, request: Request, db: Session = Depends(get_db), current_user=Depends(admin_user)):
+def delete_template(
+    template_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user=Depends(admin_user),
+):
     TemplateService(db).delete_template(template_id)
     return api_response(None, request)

@@ -14,7 +14,7 @@ export type ChapterStatus = 'pending' | 'running' | 'done' | 'failed';
 
 export type ContentType = 'text' | 'table' | 'image';
 
-export type ExportFormat = 'docx' | 'pdf' | 'md' | 'txt';
+export type ExportFormat = 'docx' | 'md' | 'txt';
 
 /** 后端统一响应结构：成功时 code 按代码规约返回 200。 */
 export interface ApiResponse<T> {
@@ -24,17 +24,25 @@ export interface ApiResponse<T> {
     traceId?: string;
 }
 
+export interface PageResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  size: number;
+}
+
 export interface Report {
   reportId: string;
   reportName: string;
   reportType: ReportType;
-  topic: string;
-  major: string;
-  plant: string;
-  year: number;
+  topic?: string;
+  major?: string;
+  plant?: string;
+  year?: number;
   status: ReportStatus;
   createdBy?: string;
   createdAt?: string;
+  generatedAt?: string;
   updatedAt?: string;
 }
 
@@ -88,18 +96,63 @@ export interface Template {
   templateName: string;
   reportType: ReportType;
   fileName: string;
+  structure?: Record<string, unknown>;
   status: 'enabled' | 'disabled';
+  createdBy?: string;
+  createdAt?: string;
 }
 
 export interface Material {
   materialId: string;
   materialName: string;
-  major: string;
+  materialType?: string;
+  major?: string;
   fileName: string;
   fileSize: number;
+  fileType?: string;
+  description?: string;
   status: 'enabled' | 'disabled';
+  createdBy?: string;
+  createdAt?: string;
 }
 
+export interface ModelConfig {
+  configId?: string;
+  apiUrl: string;
+  modelName: string;
+  apiKey?: string;
+  apiKeyMasked?: string;
+  timeoutSeconds: number;
+  enabled: boolean;
+  updatedAt?: string;
+}
+
+export interface ManagedUser {
+  userId: string;
+  username: string;
+  displayName: string;
+  role: 'user' | 'admin' | 'super_admin';
+  status: 'enabled' | 'disabled';
+  createdAt?: string;
+}
+
+
+export interface PermissionDefinition {
+  code: string;
+  name: string;
+  description?: string;
+}
+
+export interface RolePermissionItem {
+  role: 'user' | 'admin' | 'super_admin';
+  roleName: string;
+  permissionCodes: string[];
+}
+
+export interface RolePermissionsResult {
+  availablePermissions: PermissionDefinition[];
+  roles: RolePermissionItem[];
+}
 export interface CreateReportPayload {
   reportName: string;
   reportType: ReportType;

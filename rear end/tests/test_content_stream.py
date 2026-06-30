@@ -52,6 +52,59 @@ def test_content_generate_returns_parseable_sse_and_persists(client, auth_header
     assert detail["data"]["contents"][0]["tables"]
 
 
+def test_content_generate_uses_configured_model_and_material_context(client, auth_headers, admin_headers, tmp_path, monkeypatch):
+    material_file = tmp_path / "standard.txt"
+    material_file.write_text("关键素材：冷却系统、继电保护、直流电源需要重点检查。", encoding="utf-8")
+    uploaded = client.post(
+        "/api/materials",
+        headers=admin_headers,
+        data={
+            "materialName": "迎峰度夏检查标准",
+            "materialType": "inspection_standard",
+            "major": "电气",
+            "description": "用于报告生成的专业检查依据",
+        },
+        files={"file": ("standard.txt", material_file.read_bytes(), "text/plain")},
+    ).json()
+    assert uploaded["code"] == 200
+
+    def fake_call_chat_completion(config, messages):
+        prompt = "\n".join(message["content"] for message in messages)
+        assert config.api_url == "https://llm.local/v1/chat/completions"
+        assert config.model_name == "report-model"
+        assert config.api_key == "sk-testabcd"
+        assert "关键素材" in prompt
+        assert "冷却系统" in prompt
+        return "这是模型结合专业素材返回的报告正文，包含检查依据、检查情况、发现问题和整改建议。"
+
+    monkeypatch.setattr("app.ai.model_client.call_chat_completion", fake_call_chat_completion)
+    client.put(
+        "/api/admin/model-config",
+        headers=admin_headers,
+        json={
+            "apiUrl": "https://llm.local/v1/chat/completions",
+            "modelName": "report-model",
+            "apiKey": "sk-testabcd",
+            "timeoutSeconds": 120,
+            "enabled": True,
+        },
+    )
+    report_id, outline = prepared_report_with_outline(client, auth_headers)
+
+    response = client.post(
+        f"/api/reports/{report_id}/content/generate",
+        headers={**auth_headers, "Accept": "text/event-stream"},
+        json={"chapterIds": [outline[0]["chapterId"]], "regenerate": False, "forceOverwrite": False},
+    )
+
+    events = parse_sse(response.text)
+    chunks = "".join(data.get("contentDelta", "") for name, data in events if name == "chunk")
+    assert "结合专业素材" in chunks
+
+    detail = client.get(f"/api/reports/{report_id}", headers=auth_headers).json()
+    assert "结合专业素材" in detail["data"]["contents"][0]["content"]
+
+
 def test_save_chapter_content_marks_manual_edited(client, auth_headers):
     report_id, outline = prepared_report_with_outline(client, auth_headers)
     chapter_id = outline[0]["chapterId"]
@@ -124,4 +177,4 @@ def test_regenerate_force_overwrite_replaces_manual_edit(client, auth_headers):
 
     detail = client.get(f"/api/reports/{report_id}", headers=auth_headers).json()
     assert detail["data"]["contents"][0]["content"] != "手动内容"
-    assert "检查概况" in detail["data"]["contents"][0]["content"]
+    assert "检查依据" in detail["data"]["contents"][0]["content"]

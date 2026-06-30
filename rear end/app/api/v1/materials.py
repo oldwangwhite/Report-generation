@@ -27,7 +27,12 @@ def list_materials(
 
 
 @router.get("/{material_id}")
-def get_material(material_id: str, request: Request, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+def get_material(
+    material_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     return api_response(MaterialService(db).get_material(material_id), request)
 
 
@@ -49,11 +54,22 @@ def upload_material(
 
 
 @router.patch("/{material_id}/status")
-def update_material_status(material_id: str, payload: StatusUpdateRequest, request: Request, db: Session = Depends(get_db), current_user=Depends(admin_user)):
+def update_material_status(
+    material_id: str,
+    payload: StatusUpdateRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user=Depends(admin_user),
+):
     return api_response(MaterialService(db).update_status(material_id, payload.status), request)
 
 
 @router.delete("/{material_id}")
-def delete_material(material_id: str, request: Request, db: Session = Depends(get_db), current_user=Depends(admin_user)):
+def delete_material(
+    material_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user=Depends(admin_user),
+):
     MaterialService(db).delete_material(material_id)
     return api_response(None, request)
