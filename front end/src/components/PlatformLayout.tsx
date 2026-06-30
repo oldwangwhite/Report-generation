@@ -2,10 +2,8 @@
     AppstoreOutlined,
     BookOutlined,
     ControlOutlined,
-    DatabaseOutlined,
     FileProtectOutlined,
     FileTextOutlined,
-    MessageOutlined,
     SafetyCertificateOutlined,
     SettingOutlined,
     TeamOutlined,
@@ -26,7 +24,7 @@ import './PlatformLayout.css';
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 
-const USER_PATHS = ['/user/dashboard', '/user/report/generate', '/user/reports', '/user/knowledge', '/user/dialog'];
+const USER_PATHS = ['/user/dashboard', '/user/report/generate', '/user/reports'];
 const ADMIN_REPORT_PATHS = ['/admin/reports', '/admin/templates', '/admin/materials', '/admin/model'];
 const SUPER_ADMIN_PATHS = ['/admin/system-config', '/admin/admin-users', '/admin/resources'];
 
@@ -34,8 +32,6 @@ const USER_MENU_ITEMS: MenuProps['items'] = [
     { key: '/user/dashboard', icon: <AppstoreOutlined />, label: '用户首页' },
     { key: '/user/report/generate', icon: <FileTextOutlined />, label: '报告生成' },
     { key: '/user/reports', icon: <FileTextOutlined />, label: '我的报告' },
-    { key: '/user/knowledge', icon: <DatabaseOutlined />, label: '知识库查询' },
-    { key: '/user/dialog', icon: <MessageOutlined />, label: '智能对话' },
 ];
 
 function getAdminMenuItems(role: UserRole): MenuProps['items'] {
@@ -48,11 +44,10 @@ function getAdminMenuItems(role: UserRole): MenuProps['items'] {
             children: [
                 { key: '/admin/reports', icon: <FileTextOutlined />, label: '报告记录' },
                 { key: '/admin/templates', icon: <FileProtectOutlined />, label: '模板管理' },
-                { key: '/admin/materials', icon: <DatabaseOutlined />, label: '素材管理' },
+                { key: '/admin/materials', icon: <BookOutlined />, label: '素材管理' },
                 { key: '/admin/model', icon: <ControlOutlined />, label: '模型配置' },
             ],
         },
-        { key: '/admin/knowledge', icon: <BookOutlined />, label: '知识库管理' },
     ];
 
     if (!isSuperAdminRole(role)) return baseItems;
@@ -74,7 +69,7 @@ function getAdminMenuItems(role: UserRole): MenuProps['items'] {
 
 function getSelectedMenuKey(role: UserRole, currentPath: string) {
     if (isAdminRole(role)) {
-        const adminPaths = ['/admin/dashboard', ...ADMIN_REPORT_PATHS, '/admin/knowledge'];
+        const adminPaths = ['/admin/dashboard', ...ADMIN_REPORT_PATHS];
         const allowedPaths = isSuperAdminRole(role) ? [...adminPaths, ...SUPER_ADMIN_PATHS] : adminPaths;
         return allowedPaths.includes(currentPath) ? currentPath : '/admin/dashboard';
     }
@@ -105,8 +100,6 @@ const PAGE_TITLE_MAP: Record<string, string> = {
     '/user/dashboard': '用户首页',
     '/user/report/generate': '报告生成工作台',
     '/user/reports': '我的报告',
-    '/user/knowledge': '知识库查询',
-    '/user/dialog': '智能对话',
     '/admin/dashboard': '管理首页',
     '/admin/report/generate': '报告生成工作台',
     '/admin/my-reports': '我的报告',
@@ -114,7 +107,6 @@ const PAGE_TITLE_MAP: Record<string, string> = {
     '/admin/templates': '模板管理',
     '/admin/materials': '素材管理',
     '/admin/model': '模型配置',
-    '/admin/knowledge': '知识库管理',
     '/admin/system-config': '系统关键配置',
     '/admin/admin-users': '管理员权限管理',
     '/admin/resources': '关键资源管理',

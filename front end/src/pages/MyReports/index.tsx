@@ -1,6 +1,7 @@
-import { CloudDownloadOutlined, DeleteOutlined, EyeOutlined, FileSyncOutlined, ReloadOutlined } from '@ant-design/icons';
-import { Button, Card, Descriptions, Drawer, Empty, Popconfirm, Space, Table, Tabs, Tag, Typography, message } from 'antd';
+import { CloudDownloadOutlined, DeleteOutlined, EditOutlined, EyeOutlined, FileSyncOutlined, FileTextOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Button, Card, Descriptions, Drawer, Empty, Popconfirm, Space, Table, Tabs, Tag, Tooltip, Typography, message } from 'antd';
 import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import type { ColumnsType } from 'antd/es/table';
 import {
     deleteReport,
@@ -11,6 +12,7 @@ import {
     reexportReport,
 } from '../../services/reportService';
 import type { ExportFile, Report, ReportDetail, ReportStatus, ReportType } from '../../types/report';
+import { formatDateTimeMinute } from '../../utils/datetime';
 import './style.css';
 
 const { Title, Text, Paragraph } = Typography;
@@ -22,7 +24,7 @@ const REPORT_TYPE_TEXT: Record<ReportType, string> = {
 
 const STATUS_TEXT: Partial<Record<ReportStatus, string>> = {
     draft: '草稿',
-    outlineGenerated: '大纲已生成',
+    outlineGenerated: '已生成大纲',
     generating: '生成中',
     generated: '已生成',
     exporting: '导出中',
@@ -42,13 +44,7 @@ const STATUS_COLOR: Partial<Record<ReportStatus, string>> = {
     exportFailed: 'error',
 };
 
-function formatDateTime(value?: string) {
-    if (!value) return '-';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value.replace('T', ' ').replace(/\+.*$/, '');
-    const pad = (num: number) => String(num).padStart(2, '0');
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
+const formatDateTime = formatDateTimeMinute;
 
 /** 普通用户的个人报告记录页，只展示和下载自己的报告。 */
 export default function MyReportsPage() {
@@ -57,6 +53,8 @@ export default function MyReportsPage() {
     const [selectedDetail, setSelectedDetail] = useState<ReportDetail | null>(null);
     const [loading, setLoading] = useState(false);
     const [actioningId, setActioningId] = useState('');
+    const navigate = useNavigate();
+    const location = useLocation();
 
     const loadReports = async () => {
         setLoading(true);
@@ -80,6 +78,11 @@ export default function MyReportsPage() {
     useEffect(() => {
         loadReports();
     }, []);
+
+    const handleContinue = (record: Report) => {
+        const basePath = location.pathname.startsWith('/admin') ? '/admin/report/generate' : '/user/report/generate';
+        navigate(`${basePath}?reportId=${encodeURIComponent(record.reportId)}`);
+    };
 
     const handleView = async (record: Report) => {
         setActioningId(record.reportId);
@@ -125,6 +128,13 @@ export default function MyReportsPage() {
         }
     };
 
+    const getEditButtonText = (record: Report) => {
+        const hasExportFile = Boolean(latestExports[record.reportId]);
+        if (hasExportFile || record.status === 'exported' || record.status === 'generated') return '修改报告';
+        if (record.status === 'generateFailed' || record.status === 'exportFailed') return '继续处理';
+        return '继续编辑';
+    };
+
     const handleDownload = async (record: Report) => {
         const file = latestExports[record.reportId];
         if (!file) {
@@ -142,35 +152,63 @@ export default function MyReportsPage() {
         }
     };
 
+    const exportedCount = reports.filter((item) => item.status === 'exported' || latestExports[item.reportId]).length;
+    const activeCount = reports.filter((item) => ['draft', 'outlineGenerated', 'generating', 'generateFailed'].includes(item.status)).length;
+    const failedCount = reports.filter((item) => item.status === 'generateFailed' || item.status === 'exportFailed').length;
+
     const columns: ColumnsType<Report> = [
-        { title: '报告名称', dataIndex: 'reportName' },
+        {
+            title: '报告名称',
+            dataIndex: 'reportName',
+            width: 280,
+            fixed: 'left',
+            render: (value: string, record) => (
+                <div className="report-name-cell">
+                    <Text strong>{value}</Text>
+                    <Text type="secondary">{record.reportId}</Text>
+                </div>
+            ),
+        },
         {
             title: '报告类型',
             dataIndex: 'reportType',
-            width: 180,
-            render: (value: ReportType) => REPORT_TYPE_TEXT[value] || value,
+            width: 170,
+            render: (value: ReportType) => <Tag color="blue">{REPORT_TYPE_TEXT[value] || value}</Tag>,
         },
         {
             title: '状态',
             dataIndex: 'status',
-            width: 130,
+            width: 120,
             render: (value: ReportStatus) => <Tag color={STATUS_COLOR[value]}>{STATUS_TEXT[value] || value}</Tag>,
         },
-        { title: '电厂', dataIndex: 'plant', width: 130, render: (value?: string) => value || '-' },
-        { title: '年份', dataIndex: 'year', width: 90, render: (value?: number) => value || '-' },
-        { title: '更新时间', dataIndex: 'updatedAt', width: 180, render: (value?: string) => formatDateTime(value) },
+        { title: '电厂', dataIndex: 'plant', width: 120, render: (value?: string) => value || '-' },
+        { title: '年份', dataIndex: 'year', width: 88, align: 'center', render: (value?: number) => value || '-' },
+        { title: '更新时间', dataIndex: 'updatedAt', width: 160, render: (value?: string) => formatDateTime(value) },
         {
             title: '最新文件',
-            width: 220,
-            render: (_, record) => latestExports[record.reportId]?.fileName || '-',
+            width: 260,
+            render: (_, record) => {
+                const fileName = latestExports[record.reportId]?.fileName;
+                return fileName ? (
+                    <Tooltip title={fileName}>
+                        <span className="latest-file-cell">{fileName}</span>
+                    </Tooltip>
+                ) : (
+                    <Text type="secondary">暂无导出文件</Text>
+                );
+            },
         },
         {
             title: '操作',
-            width: 320,
+            width: 390,
+            fixed: 'right',
             render: (_, record) => (
-                <Space>
+                <Space className="report-actions" size={8} wrap>
                     <Button size="small" icon={<EyeOutlined />} loading={actioningId === record.reportId} onClick={() => handleView(record)}>
                         查看
+                    </Button>
+                    <Button size="small" type={latestExports[record.reportId] ? 'default' : 'primary'} icon={<EditOutlined />} onClick={() => handleContinue(record)}>
+                        {getEditButtonText(record)}
                     </Button>
                     <Button size="small" icon={<CloudDownloadOutlined />} onClick={() => handleDownload(record)}>
                         下载
@@ -193,10 +231,31 @@ export default function MyReportsPage() {
             <section className="my-reports-hero">
                 <Text type="secondary">普通用户 / 我的报告</Text>
                 <Title level={2}>我的报告记录</Title>
-                <Paragraph>普通用户只能查看、预览、重新导出、下载和删除自己创建的报告。</Paragraph>
+                <Paragraph>查看、继续编辑、重新导出、下载和删除自己创建的报告。</Paragraph>
             </section>
+
+            <div className="reports-summary">
+                <div className="summary-item">
+                    <Text type="secondary">报告总数</Text>
+                    <strong>{reports.length}</strong>
+                </div>
+                <div className="summary-item">
+                    <Text type="secondary">已导出</Text>
+                    <strong>{exportedCount}</strong>
+                </div>
+                <div className="summary-item">
+                    <Text type="secondary">进行中</Text>
+                    <strong>{activeCount}</strong>
+                </div>
+                <div className="summary-item danger">
+                    <Text type="secondary">异常记录</Text>
+                    <strong>{failedCount}</strong>
+                </div>
+            </div>
+
             <Card
-                title="我的报告列表"
+                className="reports-table-card"
+                title={<Space><FileTextOutlined />我的报告列表</Space>}
                 extra={
                     <Button icon={<ReloadOutlined />} onClick={loadReports} loading={loading}>
                         刷新
@@ -204,11 +263,13 @@ export default function MyReportsPage() {
                 }
             >
                 <Table
+                    className="reports-table"
                     rowKey="reportId"
                     columns={columns}
                     dataSource={reports}
                     loading={loading}
-                    pagination={{ pageSize: 8 }}
+                    pagination={{ pageSize: 8, showSizeChanger: false, showTotal: (total) => `共 ${total} 条报告` }}
+                    scroll={{ x: 1480 }}
                     locale={{ emptyText: <Empty description="暂无报告记录" /> }}
                 />
             </Card>

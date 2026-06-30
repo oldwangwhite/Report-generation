@@ -1,14 +1,26 @@
-.venv/
-__pycache__/
-.pytest_cache/
-.pytest-tmp/
-.idea/
+.agents/
+.codex/
 
-*.py[cod]
-*.db
-*.log
+node_modules/
+dist/
+build/
+coverage/
 
 .env
+.env.*
+!.env.example
+*.log
+
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+
+*.db
+*.sqlite
+*.sqlite3
+
 uploads/
 exports/
 test_uploads/
@@ -16,5 +28,5 @@ test_exports/
 acceptance_check_exports/
 postman_check_exports/
 
-acceptance-download.docx
-postman_newman_result.json
+*.tmp
+*.temp

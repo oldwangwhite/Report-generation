@@ -1,6 +1,6 @@
 REPORT_TYPE_LABELS = {
     "summerCheck": "迎峰度夏检查报告",
-    "coalInventoryAudit": "煤场库存盘点报告",
+    "coalInventoryAudit": "煤库存盘点报告",
 }
 
 

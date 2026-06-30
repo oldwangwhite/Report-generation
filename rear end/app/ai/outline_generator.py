@@ -1,3 +1,6 @@
+from typing import Any
+
+
 def default_outline(report_type: str) -> list[dict]:
     if report_type == "coalInventoryAudit":
         return [
@@ -14,22 +17,68 @@ def default_outline(report_type: str) -> list[dict]:
     ]
 
 
+def outline_from_template_structure(
+    structure: dict[str, Any] | None,
+    report_type: str,
+) -> list[dict]:
+    if not structure:
+        return default_outline(report_type)
+    outline = structure.get("outline")
+    normalized = _normalize_nodes(outline, level=1)
+    return normalized or default_outline(report_type)
+
+
 def flatten_outline(tree: list[dict]) -> list[dict]:
     items: list[dict] = []
 
     def walk(nodes: list[dict], parent_index: int | None = None) -> None:
         for node in nodes:
             index = len(items)
+            siblings_before = [item for item in items if item.get("parentIndex") == parent_index]
             items.append(
                 {
-                    "title": node["title"],
-                    "level": node["level"],
+                    "title": str(node["title"]).strip(),
+                    "level": int(node.get("level") or 1),
                     "parentIndex": parent_index,
-                    "sortOrder": len([i for i in items if i.get("parentIndex") == parent_index])
-                    + 1,
+                    "sortOrder": len(siblings_before) + 1,
                 }
             )
-            walk(node.get("children", []), index)
+            walk(node.get("children", []) or [], index)
 
     walk(tree)
     return items
+
+
+def _normalize_nodes(raw: Any, level: int) -> list[dict]:
+    if raw is None:
+        return []
+    if isinstance(raw, dict):
+        raw = raw.get("children") or raw.get("chapters") or raw.get("items") or []
+    if not isinstance(raw, list):
+        return []
+
+    nodes: list[dict] = []
+    for item in raw:
+        if isinstance(item, str):
+            title = item.strip()
+            children: list[dict] = []
+            item_level = level
+        elif isinstance(item, dict):
+            title = str(item.get("title") or item.get("name") or "").strip()
+            item_level = _safe_level(item.get("level"), level)
+            children = _normalize_nodes(
+                item.get("children") or item.get("sections") or item.get("items"),
+                item_level + 1,
+            )
+        else:
+            continue
+        if title:
+            nodes.append({"title": title, "level": item_level, "children": children})
+    return nodes
+
+
+def _safe_level(value: Any, fallback: int) -> int:
+    try:
+        return max(1, min(int(value), 4))
+    except (TypeError, ValueError):
+        return max(1, min(fallback, 4))

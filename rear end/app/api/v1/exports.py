@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -39,7 +41,7 @@ def list_exports(
     request: Request,
     page: int = Query(default=1, ge=1),
     size: int = Query(default=10, ge=1),
-    fileFormat: str | None = None,
+    fileFormat: Literal["docx", "md", "txt"] | None = None,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):

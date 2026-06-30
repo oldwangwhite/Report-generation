@@ -27,6 +27,8 @@ class ReportService:
             major=payload.major,
             plant=payload.plant,
             year=payload.year,
+            template_id=self._parse_optional_external_id("tpl", payload.template_id),
+            material_ids=self._parse_external_id_list("mat", payload.material_ids),
             created_by=user.user_id,
             status="draft",
         )
@@ -35,6 +37,8 @@ class ReportService:
             "reportId": to_external_id("rpt", saved.id),
             "reportName": saved.report_name,
             "reportType": saved.report_type,
+            "templateId": to_external_id("tpl", saved.template_id),
+            "materialIds": [to_external_id("mat", item) for item in saved.material_ids or []],
             "status": saved.status,
         }
 
@@ -94,6 +98,9 @@ class ReportService:
         report.major = payload.major
         report.plant = payload.plant
         report.year = payload.year
+        report.template_id = self._parse_optional_external_id("tpl", payload.template_id)
+        if payload.material_ids is not None:
+            report.material_ids = self._parse_external_id_list("mat", payload.material_ids)
         saved = self.reports.save(report)
         return self._report_detail(saved)
 
@@ -101,6 +108,14 @@ class ReportService:
         report = self._get_report_for_user(report_id, user)
         report.deleted_flag = 1
         self.reports.save(report)
+
+    def _parse_optional_external_id(self, prefix: str, value: str | None) -> int | None:
+        if not value:
+            return None
+        return parse_external_id(prefix, value)
+
+    def _parse_external_id_list(self, prefix: str, values: list[str] | None) -> list[int]:
+        return [parse_external_id(prefix, value) for value in values or [] if value]
 
     def _get_report_for_user(self, report_id: str, user: CurrentUser) -> ReportRecord:
         report = self.reports.get_active(parse_external_id("rpt", report_id))
@@ -125,6 +140,8 @@ class ReportService:
             "reportType": report.report_type,
             "plant": report.plant,
             "year": report.year,
+            "templateId": to_external_id("tpl", report.template_id),
+            "materialIds": [to_external_id("mat", item) for item in report.material_ids or []],
             "status": report.status,
             "generatedAt": isoformat(report.generated_at),
             "createdAt": isoformat(report.created_at),
@@ -140,6 +157,8 @@ class ReportService:
             "major": report.major,
             "plant": report.plant,
             "year": report.year,
+            "templateId": to_external_id("tpl", report.template_id),
+            "materialIds": [to_external_id("mat", item) for item in report.material_ids or []],
             "status": report.status,
             "createdBy": to_external_id("usr", report.created_by),
             "createdAt": isoformat(report.created_at),

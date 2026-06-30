@@ -1,46 +1,56 @@
-﻿.platform-shell {
+.platform-shell {
     min-height: 100vh;
-    background: #eef3f8;
+    background: var(--app-bg);
 }
 
 .platform-sidebar {
     position: sticky;
     top: 0;
     height: 100vh;
-    padding: 20px 14px;
-    background: #10243d !important;
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 14px 10px;
+    background: var(--app-sidebar) !important;
+    border-right: 1px solid #dcecf8;
 }
 
 .platform-brand {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 4px 6px 22px;
-    color: #fff;
+    gap: 10px;
+    min-height: 58px;
+    padding: 2px 8px 14px;
+    color: var(--app-text);
 }
 
 .platform-brand strong {
     display: block;
-    font-size: 17px;
+    overflow: hidden;
+    max-width: 166px;
+    font-size: 16px;
     line-height: 1.45;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .platform-brand span {
     display: block;
-    color: #aab8ca;
+    overflow: hidden;
+    max-width: 166px;
+    color: #8a9bad;
     font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .brand-mark {
     display: grid;
-    width: 42px;
-    height: 42px;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 auto;
     place-items: center;
-    border-radius: 8px;
-    background: #1f8fed;
-    color: #fff;
-    font-size: 20px;
+    border-radius: 7px;
+    background: #d9f1ff;
+    color: var(--app-primary);
+    font-size: 17px;
     font-weight: 800;
 }
 
@@ -49,60 +59,69 @@
     background: transparent;
 }
 
-.platform-menu .ant-menu-item {
-    height: 44px;
-    margin: 5px 0;
-    color: #c4d2e3;
-}
-
-
+.platform-menu .ant-menu-item,
 .platform-menu .ant-menu-submenu-title {
-    height: 44px;
-    margin: 5px 0;
-    color: #c4d2e3 !important;
+    width: 100%;
+    height: 40px;
+    margin: 4px 0;
+    color: #4d5b69 !important;
+    border-radius: 4px;
+    font-weight: 600;
 }
 
 .platform-menu .ant-menu-submenu-selected > .ant-menu-submenu-title {
-    color: #fff !important;
-    font-weight: 700;
+    color: #2a79d8 !important;
 }
 
 .platform-menu .ant-menu-sub {
-    background: rgba(255, 255, 255, 0.04) !important;
-    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.32) !important;
+    border-radius: 6px;
 }
 
 .platform-menu .ant-menu-sub .ant-menu-item {
-    height: 40px;
+    height: 38px;
     margin: 4px 0;
     padding-left: 42px !important;
 }
+
+.platform-menu .ant-menu-item:hover,
+.platform-menu .ant-menu-submenu-title:hover {
+    background: rgba(255, 255, 255, 0.58) !important;
+    color: #2a79d8 !important;
+}
+
 .platform-menu .ant-menu-item-selected {
-    background: #1f8fed !important;
-    color: #fff !important;
+    background: #cceeff !important;
+    color: #1f72e8 !important;
     font-weight: 700;
+}
+
+.platform-menu .ant-menu-item .ant-menu-item-icon,
+.platform-menu .ant-menu-submenu-title .ant-menu-item-icon {
+    color: inherit;
+    font-size: 15px;
 }
 
 .sidebar-summary {
     position: absolute;
-    right: 14px;
-    bottom: 20px;
-    left: 14px;
+    right: 10px;
+    bottom: 14px;
+    left: 10px;
     display: grid;
-    gap: 6px;
-    padding: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.14);
+    gap: 5px;
+    padding: 12px;
+    border: 1px solid #d4e8f5;
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.52);
 }
 
 .sidebar-summary strong {
-    color: #fff;
-    font-size: 16px;
+    color: var(--app-text);
+    font-size: 15px;
 }
 
 .sidebar-summary span {
-    color: #aab8ca;
+    color: #7c8b99;
     font-size: 12px;
     line-height: 1.6;
 }
@@ -113,21 +132,43 @@
 
 .platform-header {
     display: flex;
-    min-height: 96px;
+    min-height: 68px;
     height: auto;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 24px;
+    gap: 18px;
+    padding: 12px 20px 12px 22px;
     background: #fff;
-    border-bottom: 1px solid #dbe6f3;
+    border-bottom: 1px solid var(--app-border);
     line-height: normal;
 }
 
 .platform-header h1 {
-    margin: 4px 0 0;
-    color: #172033;
-    font-size: 22px;
+    margin: 2px 0 0;
+    color: var(--app-text);
+    font-size: 18px;
     line-height: 1.2;
+}
+
+.platform-header .ant-typography {
+    color: #9aa5b4;
+    font-size: 12px;
+}
+
+.platform-header .ant-space {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.platform-header .ant-tag {
+    margin-inline-end: 0;
+    border-radius: 6px;
+}
+
+.platform-header .ant-btn {
+    height: 30px;
+    border-color: #e6edf5;
+    color: #526172;
 }
 
 @media (max-width: 960px) {
@@ -155,4 +196,3 @@
         padding: 16px;
     }
 }
-

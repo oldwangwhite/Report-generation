@@ -44,14 +44,6 @@ export default function AppRouter() {
                 <Route path="/user/dashboard" element={<DashboardPage role="user" />} />
                 <Route path="/user/report/generate" element={<ReportGenerationPage />} />
                 <Route path="/user/reports" element={<MyReportsPage />} />
-                <Route
-                    path="/user/knowledge"
-                    element={<SystemPlaceholderPage title="知识库查询" description="普通用户可在这里查询报告生成可引用的标准、素材和历史资料。" />}
-                />
-                <Route
-                    path="/user/dialog"
-                    element={<SystemPlaceholderPage title="智能对话" description="普通用户可在这里进行问答辅助，查询报告写作依据和知识库内容。" />}
-                />
 
                 <Route path="/admin/dashboard" element={<AdminOnly><DashboardPage role="admin" /></AdminOnly>} />
                 <Route path="/admin/report/generate" element={<AdminOnly><ReportGenerationPage /></AdminOnly>} />
@@ -60,14 +52,6 @@ export default function AppRouter() {
                 <Route path="/admin/templates" element={<AdminOnly><ReportManagementPage /></AdminOnly>} />
                 <Route path="/admin/materials" element={<AdminOnly><ReportManagementPage /></AdminOnly>} />
                 <Route path="/admin/model" element={<AdminOnly><ReportManagementPage /></AdminOnly>} />
-                <Route
-                    path="/admin/knowledge"
-                    element={
-                        <AdminOnly>
-                            <SystemPlaceholderPage title="知识库管理" description="管理员可在这里维护标准文档、素材文件、向量索引和知识库配置。" />
-                        </AdminOnly>
-                    }
-                />
                 <Route
                     path="/admin/system-config"
                     element={

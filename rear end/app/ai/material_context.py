@@ -6,23 +6,45 @@ from sqlalchemy.orm import Session
 from app.entity.material import Material, MaterialTag
 
 MAX_MATERIALS = 5
-MAX_CHARS_PER_MATERIAL = 800
-MAX_CONTEXT_CHARS = 2400
+MAX_CHARS_PER_MATERIAL = 1000
+MAX_CONTEXT_CHARS = 3600
 
 
-def build_material_context(db: Session, major: str | None) -> str:
-    materials = _active_materials(db, major)
+def build_material_context(
+    db: Session,
+    major: str | None,
+    material_ids: list[int] | None = None,
+) -> str:
+    materials = _selected_materials(db, material_ids) if material_ids else _active_materials(db, major)
     blocks: list[str] = []
     for item in materials[:MAX_MATERIALS]:
         major_tag = _tag(db, item.id, "major") or "未指定专业"
         text = _extract_material_text(item)
         if not text:
-            text = item.description or "该素材暂无法提取正文，可参考素材名称和类型。"
+            text = item.description or "该素材暂无法提取正文，可参考素材名称、类型和描述。"
         text = _compact(text)[:MAX_CHARS_PER_MATERIAL]
         blocks.append(
-            f"素材名称：{item.name}\n素材类型：{item.type}\n适用专业：{major_tag}\n素材摘要：{text}"
+            f"素材名称：{item.name}\n"
+            f"素材类型：{item.type}\n"
+            f"适用专业：{major_tag}\n"
+            f"素材摘要：{text}"
         )
     return "\n\n".join(blocks)[:MAX_CONTEXT_CHARS]
+
+
+def _selected_materials(db: Session, material_ids: list[int] | None) -> list[Material]:
+    ids = [item for item in material_ids or [] if item]
+    if not ids:
+        return []
+    active_ids = {
+        row.material_id
+        for row in db.query(MaterialTag)
+        .filter(MaterialTag.tag_key == "status", MaterialTag.tag_value == "enabled")
+        .all()
+    }
+    items = db.query(Material).filter(Material.id.in_(ids), Material.deleted_flag == 0).all()
+    item_by_id = {item.id: item for item in items if item.id in active_ids}
+    return [item_by_id[item_id] for item_id in ids if item_id in item_by_id]
 
 
 def _active_materials(db: Session, major: str | None) -> list[Material]:
@@ -32,7 +54,7 @@ def _active_materials(db: Session, major: str | None) -> list[Material]:
         .filter(MaterialTag.tag_key == "status", MaterialTag.tag_value == "enabled")
         .all()
     ]
-    query = db.query(Material).filter(Material.id.in_(active_ids or [-1]))
+    query = db.query(Material).filter(Material.id.in_(active_ids or [-1]), Material.deleted_flag == 0)
     if major:
         major_ids = [
             row.material_id
@@ -65,7 +87,13 @@ def _extract_material_text(item: Material) -> str:
         if suffix == ".docx":
             document = Document(path)
             paragraphs = [paragraph.text.strip() for paragraph in document.paragraphs if paragraph.text.strip()]
-            return "\n".join(paragraphs)
+            table_text: list[str] = []
+            for table in document.tables:
+                for row in table.rows:
+                    cells = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+                    if cells:
+                        table_text.append(" | ".join(cells))
+            return "\n".join(paragraphs + table_text)
     except Exception:
         return ""
     return ""

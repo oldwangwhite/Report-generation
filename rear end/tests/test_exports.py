@@ -120,17 +120,3 @@ def test_create_status_history_and_download_docx_uses_template(client, auth_head
     document = Document(BytesIO(download.content))
     body_paragraph = next(p for p in document.paragraphs if p.text == "用户编辑后的章节正文。")
     assert body_paragraph.style.name == "CustomBody"
-
-
-def test_pdf_export_returns_friendly_failure(client, auth_headers):
-    report_id = prepare_generated_report(client, auth_headers)
-
-    created = client.post(
-        f"/api/reports/{report_id}/exports",
-        headers=auth_headers,
-        json={"fileFormat": "pdf", "useLatestSavedContent": True},
-    ).json()
-
-    assert created["code"] == 500
-    assert created["message"] == "文件导出失败"
-    assert created["data"]["errorType"] == "export_failed"

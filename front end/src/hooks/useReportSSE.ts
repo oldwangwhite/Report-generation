@@ -16,6 +16,7 @@ export function useReportSSE(params: {
   const [percent, setPercent] = useState(0);
     const [progressText, setProgressText] = useState('待生成');
     const abortControllerRef = useRef<AbortController | null>(null);
+    const resetChapterIdsRef = useRef<Set<string>>(new Set());
 
   /** 根据 SSE 事件更新页面状态。 */
   const handleEvent = (event: StreamEvent) => {
@@ -23,6 +24,15 @@ export function useReportSSE(params: {
       params.setOutline((prev) =>
         prev.map((item) => (item.chapterId === event.chapterId ? { ...item, status: 'running' } : item)),
       );
+      if (resetChapterIdsRef.current.has(event.chapterId)) {
+        params.setContents((prev) =>
+          prev.map((item) =>
+            item.chapterId === event.chapterId
+              ? { ...item, content: '', tables: [], manualEdited: false }
+              : item,
+          ),
+        );
+      }
       setProgressText(`正在生成：${event.chapterNo} ${event.title}`);
     }
 
@@ -62,11 +72,13 @@ export function useReportSSE(params: {
       setPercent(100);
       setProgressText('生成完成');
       setGenerating(false);
+      resetChapterIdsRef.current = new Set();
       message.success('报告内容生成完成');
     }
 
     if (event.event === 'error') {
       setGenerating(false);
+      resetChapterIdsRef.current = new Set();
       message.error(event.message || '生成失败');
     }
   };
@@ -80,6 +92,11 @@ export function useReportSSE(params: {
     setGenerating(true);
     setPercent(0);
     setProgressText('准备生成');
+    const shouldReset = Boolean(options?.forceOverwrite || options?.regenerate);
+    const targetChapterIds = options?.chapterIds?.length
+      ? options.chapterIds
+      : params.outline.map((item) => item.chapterId).filter(Boolean) as string[];
+    resetChapterIdsRef.current = shouldReset ? new Set(targetChapterIds) : new Set();
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -96,6 +113,7 @@ export function useReportSSE(params: {
       } else {
         message.error(error instanceof Error ? error.message : '生成失败');
       }
+      resetChapterIdsRef.current = new Set();
       setGenerating(false);
     }
   };

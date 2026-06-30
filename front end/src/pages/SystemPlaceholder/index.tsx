@@ -92,12 +92,6 @@ export function DashboardPage(props: DashboardPageProps) {
                         <Col span={6}>
                             <Card title="我的报告">查看个人报告、下载历史导出文件</Card>
                         </Col>
-                        <Col span={6}>
-                            <Card title="知识库查询">查询报告生成相关标准和素材</Card>
-                        </Col>
-                        <Col span={6}>
-                            <Card title="智能对话">基于知识库进行问答辅助</Card>
-                        </Col>
                     </>
                 )}
             </Row>

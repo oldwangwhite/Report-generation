@@ -217,7 +217,10 @@ export async function createReport(payload: CreateReportPayload): Promise<Report
 }
 
 /** 调用后端生成报告大纲。 */
-export async function generateOutline(reportId: string, payload: { reportType: string; topic: string; templateId?: string }) {
+export async function generateOutline(
+  reportId: string,
+  payload: { reportType: string; topic: string; templateId?: string; materialIds?: string[] },
+) {
   if (USE_MOCK) return delay(MOCK_OUTLINE.map((item) => ({ ...item, reportId })));
   return requestJson<{ reportId: string; outline: Chapter[] }>(`/api/reports/${reportId}/outline/generate`, {
     method: 'POST',
@@ -421,7 +424,7 @@ export async function downloadExportFile(file: ExportFile) {
         `报告文件：${file.fileName}\n`,
         `报告编号：${file.reportId}\n`,
         `导出格式：${file.fileFormat}\n`,
-        '这是前端 mock 下载文件，后续后端完成后会替换为真实 DOCX/PDF/MD/TXT 文件流。\n',
+        '这是前端 mock 下载文件，后续后端完成后会替换为真实 DOCX/MD/TXT 文件流。\n',
       ],
       { type: 'text/plain;charset=utf-8' },
     );
@@ -552,5 +555,4 @@ export async function streamGenerateContent(
     });
   }
 }
-
 

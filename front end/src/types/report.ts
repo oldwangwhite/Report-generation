@@ -14,7 +14,7 @@ export type ChapterStatus = 'pending' | 'running' | 'done' | 'failed';
 
 export type ContentType = 'text' | 'table' | 'image';
 
-export type ExportFormat = 'docx' | 'pdf' | 'md' | 'txt';
+export type ExportFormat = 'docx' | 'md' | 'txt';
 
 /** 后端统一响应结构：成功时 code 按代码规约返回 200。 */
 export interface ApiResponse<T> {
@@ -39,6 +39,8 @@ export interface Report {
   major?: string;
   plant?: string;
   year?: number;
+  templateId?: string | null;
+  materialIds?: string[];
   status: ReportStatus;
   createdBy?: string;
   createdAt?: string;
