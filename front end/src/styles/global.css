@@ -1,0 +1,123 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --app-bg: #f5f8fc;
+  --app-panel: #ffffff;
+  --app-sidebar: #eaf6ff;
+  --app-sidebar-strong: #d7f1ff;
+  --app-border: #edf1f7;
+  --app-border-strong: #d9e5f2;
+  --app-text: #1f2a37;
+  --app-muted: #8b97a8;
+  --app-primary: #2f83f7;
+  --app-primary-strong: #1f72e8;
+  --app-primary-soft: #e8f3ff;
+  --app-shadow: 0 10px 28px rgba(29, 65, 116, 0.06);
+}
+
+html,
+body {
+  margin: 0;
+  min-width: 0;
+  min-height: 100%;
+  background: var(--app-bg);
+  color: var(--app-text);
+  font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+  font-size: 14px;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.ant-layout {
+  background: var(--app-bg);
+}
+
+.ant-card {
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.ant-card .ant-card-head {
+  min-height: 48px;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.ant-card .ant-card-head-title {
+  color: var(--app-text);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.ant-card .ant-card-body {
+  color: #4b5565;
+}
+
+.ant-btn {
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.ant-btn-primary {
+  background: var(--app-primary);
+  border-color: var(--app-primary);
+}
+
+.ant-btn-primary:not(:disabled):not(.ant-btn-disabled):hover {
+  background: var(--app-primary-strong);
+  border-color: var(--app-primary-strong);
+}
+
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-input-number,
+.ant-select-selector,
+.ant-picker {
+  border-color: #e4ebf4 !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+
+.ant-input:hover,
+.ant-input:focus,
+.ant-input-affix-wrapper:hover,
+.ant-input-affix-wrapper-focused,
+.ant-input-number:hover,
+.ant-input-number-focused,
+.ant-select-focused .ant-select-selector {
+  border-color: #9bc8ff !important;
+}
+
+.ant-table-wrapper .ant-table {
+  color: #4b5565;
+  border-radius: 8px;
+}
+
+.ant-table-wrapper .ant-table-thead > tr > th {
+  background: #f7f9fc;
+  color: #566273;
+  font-weight: 700;
+}
+
+.ant-tabs .ant-tabs-tab {
+  padding: 10px 0;
+}
+
+.ant-tabs .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--app-primary);
+}
+
+.ant-tabs .ant-tabs-ink-bar {
+  background: var(--app-primary);
+}
