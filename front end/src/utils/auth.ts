@@ -26,6 +26,10 @@ export function saveLoginSession(role: UserRole, username: string, token = getTo
     localStorage.setItem('token', token);
 }
 
+export function saveAuthSession(token: string, role: string, username: string) {
+    saveLoginSession(normalizeUserRole(role), username, token);
+}
+
 export function getUserRole(): UserRole {
     return normalizeUserRole(localStorage.getItem(ROLE_STORAGE_KEY));
 }

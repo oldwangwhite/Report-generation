@@ -1,7 +1,10 @@
-﻿import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import PublicLayout from '../components/PublicLayout';
 import PlatformLayout from '../layouts/PlatformLayout';
 import LoginPage from '../pages/Login';
 import MyReportsPage from '../pages/MyReports';
+import PublicHome from '../pages/PublicHome';
+import RegisterPage from '../pages/Register';
 import ReportManagementPage from '../pages/ReportManagement';
 import ReportGenerationPage from '../pages/ReportGeneration';
 import SystemPlaceholderPage, { DashboardPage } from '../pages/SystemPlaceholder';
@@ -39,7 +42,12 @@ function SuperAdminOnly({ children }: { children: JSX.Element }) {
 export default function AppRouter() {
     return (
         <Routes>
-            <Route path="/login" element={<LoginPage />} />
+            <Route element={<PublicLayout />}>
+                <Route path="/" element={<PublicHome />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+            </Route>
+
             <Route element={<ProtectedLayout />}>
                 <Route path="/user/dashboard" element={<DashboardPage role="user" />} />
                 <Route path="/user/report/generate" element={<ReportGenerationPage />} />
@@ -77,6 +85,7 @@ export default function AppRouter() {
                     }
                 />
 
+                <Route path="/protected" element={<RoleRedirect />} />
                 <Route path="/dashboard" element={<RoleRedirect />} />
                 <Route path="/report/generate" element={<Navigate to="/user/report/generate" replace />} />
                 <Route path="/report/manage" element={<Navigate to="/admin/reports" replace />} />

@@ -219,6 +219,21 @@
   border-radius: 6px;
 }
 
+.template-outline-preview {
+  display: grid;
+  gap: 3px;
+  margin-top: 6px;
+  color: #526172;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.template-outline-preview span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .task-card {
   position: sticky;
   top: 12px;

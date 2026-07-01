@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.ai.outline_generator import flatten_outline, outline_from_template_structure
 from app.core.errors import BusinessError, NotFoundError
 from app.core.security import CurrentUser
+from app.entity.content import ReportChapterContent
 from app.entity.outline import ReportOutline
 from app.entity.template import ReportTemplate
 from app.repository.outline_repository import OutlineRepository
@@ -28,6 +29,8 @@ class OutlineService:
             )
         selected_template = self._resolve_template(report, payload.template_id, report_type)
         if selected_template:
+            if selected_template.status != "enabled":
+                raise BusinessError(400, "Invalid request", {"field": "templateId", "reason": "template is disabled"})
             if selected_template.report_type != report_type:
                 raise BusinessError(400, "参数错误", {"field": "templateId", "reason": "模板类型与报告类型不匹配"})
             report.template_id = selected_template.id
@@ -39,6 +42,7 @@ class OutlineService:
         for chapter in old:
             chapter.deleted_flag = 1
             self.db.add(chapter)
+            self._delete_chapter_content(report.id, chapter.id)
         self.db.flush()
 
         structure = selected_template.structure if selected_template else None
@@ -119,6 +123,7 @@ class OutlineService:
             if old_id not in submitted_ids and chapter not in chapters:
                 chapter.deleted_flag = 1
                 self.db.add(chapter)
+                self._delete_chapter_content(report.id, chapter.id)
 
         renumbered = renumber_outline(chapters)
         self.db.commit()
@@ -138,12 +143,29 @@ class OutlineService:
         parsed_template_id = parse_external_id("tpl", template_id) if template_id else report.template_id
         query = self.db.query(ReportTemplate).filter(ReportTemplate.deleted_flag == 0)
         if parsed_template_id:
-            return query.filter(ReportTemplate.id == parsed_template_id).first()
+            item = query.filter(ReportTemplate.id == parsed_template_id).first()
+            if item is None:
+                raise BusinessError(400, "Invalid request", {"field": "templateId", "reason": "template not found"})
+            return item
         return (
             query.filter(ReportTemplate.report_type == report_type, ReportTemplate.status == "enabled")
             .order_by(ReportTemplate.id.desc())
             .first()
         )
+
+    def _delete_chapter_content(self, report_id: int, chapter_id: int) -> None:
+        rows = (
+            self.db.query(ReportChapterContent)
+            .filter(
+                ReportChapterContent.report_id == report_id,
+                ReportChapterContent.chapter_id == chapter_id,
+                ReportChapterContent.deleted_flag == 0,
+            )
+            .all()
+        )
+        for row in rows:
+            row.deleted_flag = 1
+            self.db.add(row)
 
     def _chapter_item(self, chapter: ReportOutline) -> dict:
         return {

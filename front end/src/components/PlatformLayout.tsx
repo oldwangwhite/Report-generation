@@ -125,7 +125,7 @@ export default function PlatformLayout() {
 
     const handleLogout = () => {
         clearLoginSession();
-        navigate('/login', { replace: true });
+        navigate('/', { replace: true });
     };
 
     return (
@@ -166,7 +166,6 @@ export default function PlatformLayout() {
                             {getRoleLabel(role)}
                         </Tag>
                         <Tag color="default">{username}</Tag>
-                        <Tag color="blue">Mock 联调</Tag>
                         <Button size="small" onClick={handleLogout}>
                             退出登录
                         </Button>

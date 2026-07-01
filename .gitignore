@@ -1,5 +1,6 @@
 .agents/
 .codex/
+Report-generation-main/
 
 node_modules/
 dist/

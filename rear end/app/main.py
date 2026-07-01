@@ -43,8 +43,9 @@ def startup() -> None:
         seed_reference_data(db)
 
 
-from app.api.v1 import contents, exports, materials, model_config, outlines, reports, templates, users
+from app.api.v1 import auth, contents, exports, materials, model_config, outlines, reports, templates, users
 
+app.include_router(auth.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
 app.include_router(outlines.router, prefix="/api")
 app.include_router(contents.router, prefix="/api")

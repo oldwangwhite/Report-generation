@@ -117,10 +117,28 @@ function formatFileSize(size?: number) {
 const formatDateTime = formatDateTimeMinute;
 
 function structureToText(structure?: Record<string, unknown>) {
+    const outline = flattenTemplateStructure(structure);
+    if (outline.length) return outline.join('\n');
     const chapters = structure?.chapters;
     if (Array.isArray(chapters)) return chapters.join('\n');
     if (!structure || Object.keys(structure).length === 0) return '';
     return JSON.stringify(structure, null, 2);
+}
+
+function flattenTemplateStructure(structure?: Record<string, unknown>) {
+    const outline = Array.isArray(structure?.outline) ? structure.outline : [];
+    const rows: string[] = [];
+    const walk = (nodes: unknown[], prefix = '') => {
+        nodes.forEach((node, index) => {
+            if (!node || typeof node !== 'object') return;
+            const item = node as { title?: unknown; children?: unknown[] };
+            const no = prefix ? `${prefix}.${index + 1}` : `${index + 1}`;
+            if (typeof item.title === 'string') rows.push(`${no} ${item.title}`);
+            if (Array.isArray(item.children)) walk(item.children, no);
+        });
+    };
+    walk(outline);
+    return rows;
 }
 
 function textToStructure(text: string) {
@@ -139,6 +157,23 @@ function textToStructure(text: string) {
 }
 
 /** 报告记录与管理后台页面。 */
+function acceptTemplateFile(file: File) {
+    if (!file.name.toLowerCase().endsWith('.docx')) {
+        message.error('报告模板仅支持 DOCX 文件');
+        return Upload.LIST_IGNORE;
+    }
+    return true;
+}
+
+function acceptMaterialFile(file: File) {
+    const supported = ['.docx', '.txt', '.md', '.csv', '.pdf', '.xlsx'];
+    if (!supported.some((suffix) => file.name.toLowerCase().endsWith(suffix))) {
+        message.error('素材支持 DOCX/TXT/MD/CSV/PDF/XLSX 文件');
+        return Upload.LIST_IGNORE;
+    }
+    return true;
+}
+
 export default function ReportManagementPage() {
     const location = useLocation();
     const navigate = useNavigate();
@@ -148,6 +183,7 @@ export default function ReportManagementPage() {
     const [materials, setMaterials] = useState<Material[]>([]);
     const [selectedDetail, setSelectedDetail] = useState<ReportDetail | null>(null);
     const [templateDetail, setTemplateDetail] = useState<Template | null>(null);
+    const [materialDetail, setMaterialDetail] = useState<Material | null>(null);
     const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
     const [templateModalOpen, setTemplateModalOpen] = useState(false);
     const [structureModalOpen, setStructureModalOpen] = useState(false);
@@ -162,7 +198,10 @@ export default function ReportManagementPage() {
     const [modelForm] = Form.useForm<ModelConfig>();
 
     const activeTab = getActiveTabByPath(location.pathname);
-    const exportedCount = useMemo(() => reports.filter((item) => item.status === 'exported').length, [reports]);
+    const exportedCount = useMemo(
+        () => reports.filter((item) => item.status === 'exported' || latestExports[item.reportId]).length,
+        [latestExports, reports],
+    );
 
     const loadReports = async () => {
         setLoading(true);
@@ -507,9 +546,12 @@ export default function ReportManagementPage() {
         },
         {
             title: '操作',
-            width: 180,
+            width: 260,
             render: (_, record) => (
                 <Space>
+                    <Button size="small" onClick={() => setMaterialDetail(record)}>
+                        查看解析
+                    </Button>
                     <Button size="small" loading={actioning === record.materialId} onClick={() => handleToggleMaterial(record)}>
                         {record.status === 'enabled' ? '停用' : '启用'}
                     </Button>
@@ -648,7 +690,7 @@ export default function ReportManagementPage() {
                             { label: '煤库存审计报告', value: 'coalInventoryAudit' },
                         ]} />
                     </Form.Item>
-                    <Upload beforeUpload={(file) => { setTemplateFile(file as File); return false; }} maxCount={1}>
+                    <Upload beforeUpload={(file) => { if (acceptTemplateFile(file as File) !== true) return Upload.LIST_IGNORE; setTemplateFile(file as File); return false; }} maxCount={1}>
                         <Button icon={<UploadOutlined />}>选择模板文件</Button>
                     </Upload>
                 </Form>
@@ -670,11 +712,30 @@ export default function ReportManagementPage() {
                         <Select allowClear options={['电气', '锅炉', '汽机', '燃料', '安全监督'].map((item) => ({ label: item, value: item }))} />
                     </Form.Item>
                     <Form.Item name="description" label="说明"><Input.TextArea rows={3} /></Form.Item>
-                    <Upload beforeUpload={(file) => { setMaterialFile(file as File); return false; }} maxCount={1}>
+                    <Upload beforeUpload={(file) => { if (acceptMaterialFile(file as File) !== true) return Upload.LIST_IGNORE; setMaterialFile(file as File); return false; }} maxCount={1}>
                         <Button icon={<UploadOutlined />}>选择素材文件</Button>
                     </Upload>
                 </Form>
             </Modal>
+            <Drawer width={560} title="素材解析结果" open={Boolean(materialDetail)} onClose={() => setMaterialDetail(null)}>
+                {materialDetail && (
+                    <Descriptions bordered column={1}>
+                        <Descriptions.Item label="素材名称">{materialDetail.materialName}</Descriptions.Item>
+                        <Descriptions.Item label="专业">{materialDetail.major || '通用'}</Descriptions.Item>
+                        <Descriptions.Item label="文件名">{materialDetail.fileName}</Descriptions.Item>
+                        <Descriptions.Item label="文件类型">{materialDetail.fileType || '-'}</Descriptions.Item>
+                        <Descriptions.Item label="解析状态">
+                            <Tag color={materialDetail.parseSupported ? 'success' : 'warning'}>
+                                {materialDetail.parseSupported ? '可参与正文解析' : '已上传但暂不解析'}
+                            </Tag>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="说明">
+                            {materialDetail.parseMessage || 'DOCX/TXT/MD/CSV 可参与正文解析；PDF/XLSX 当前仅保存文件信息。'}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="描述">{materialDetail.description || '-'}</Descriptions.Item>
+                    </Descriptions>
+                )}
+            </Drawer>
         </main>
     );
 }

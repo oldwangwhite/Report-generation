@@ -109,3 +109,45 @@ def test_user_cannot_access_other_users_report(client, auth_headers):
     detail = client.get(f"/api/reports/{report_id}", headers=other_headers).json()
 
     assert detail["code"] == 404
+
+
+def test_create_report_rejects_invalid_year(client, auth_headers):
+    response = client.post(
+        "/api/reports",
+        headers=auth_headers,
+        json={
+            "reportName": "invalid year",
+            "reportType": "summerCheck",
+            "topic": "topic",
+            "major": "电气",
+            "plant": "XX电厂",
+            "year": 1800,
+        },
+    )
+
+    assert response.status_code == 400
+    body = response.json()
+    assert body["code"] == 400
+    assert body["data"]["field"] == "year"
+
+
+def test_create_report_rejects_missing_template_and_material(client, auth_headers):
+    response = client.post(
+        "/api/reports",
+        headers=auth_headers,
+        json={
+            "reportName": "bad refs",
+            "reportType": "summerCheck",
+            "topic": "topic",
+            "major": "电气",
+            "plant": "XX电厂",
+            "year": 2026,
+            "templateId": "tpl_999999",
+            "materialIds": ["mat_999999"],
+        },
+    )
+
+    assert response.status_code == 400
+    body = response.json()
+    assert body["code"] == 400
+    assert body["data"]["field"] == "templateId"

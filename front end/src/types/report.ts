@@ -113,6 +113,9 @@ export interface Material {
   fileSize: number;
   fileType?: string;
   description?: string;
+  parseSupported?: boolean;
+  parseStatus?: 'supported' | 'uploaded_only';
+  parseMessage?: string;
   status: 'enabled' | 'disabled';
   createdBy?: string;
   createdAt?: string;

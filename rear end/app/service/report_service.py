@@ -4,13 +4,18 @@ from app.core.errors import BusinessError, NotFoundError
 from app.core.security import CurrentUser
 from app.entity.content import ReportChapterContent
 from app.entity.export import ReportExport
+from app.entity.material import Material, MaterialTag
 from app.entity.outline import ReportOutline
 from app.entity.report import ReportRecord
+from app.entity.template import ReportTemplate
 from app.repository.report_repository import ReportRepository
 from app.utils.datetime_utils import isoformat
 from app.utils.id_utils import parse_external_id, to_external_id
 
 REPORT_TYPES = {"summerCheck", "coalInventoryAudit"}
+VALID_YEAR_MIN = 2020
+VALID_YEAR_MAX = 2035
+GENERAL_MAJORS = {"", "综合", "通用", "general", "common"}
 
 
 class ReportService:
@@ -20,6 +25,9 @@ class ReportService:
 
     def create_report(self, payload, user: CurrentUser) -> dict:
         self._validate_report_type(payload.report_type)
+        self._validate_year(payload.year)
+        template_id = self._validate_template(payload.template_id, payload.report_type)
+        material_ids = self._validate_materials(payload.material_ids, payload.major)
         report = ReportRecord(
             report_name=payload.report_name,
             report_type=payload.report_type,
@@ -27,8 +35,8 @@ class ReportService:
             major=payload.major,
             plant=payload.plant,
             year=payload.year,
-            template_id=self._parse_optional_external_id("tpl", payload.template_id),
-            material_ids=self._parse_external_id_list("mat", payload.material_ids),
+            template_id=template_id,
+            material_ids=material_ids,
             created_by=user.user_id,
             status="draft",
         )
@@ -75,6 +83,7 @@ class ReportService:
             .filter(
                 ReportChapterContent.report_id == report.id,
                 ReportChapterContent.deleted_flag == 0,
+                ReportChapterContent.chapter_id.in_([item.id for item in outline] or [-1]),
             )
             .all()
         )
@@ -97,10 +106,11 @@ class ReportService:
         report.topic = payload.topic
         report.major = payload.major
         report.plant = payload.plant
+        self._validate_year(payload.year)
         report.year = payload.year
-        report.template_id = self._parse_optional_external_id("tpl", payload.template_id)
+        report.template_id = self._validate_template(payload.template_id, report.report_type)
         if payload.material_ids is not None:
-            report.material_ids = self._parse_external_id_list("mat", payload.material_ids)
+            report.material_ids = self._validate_materials(payload.material_ids, report.major)
         saved = self.reports.save(report)
         return self._report_detail(saved)
 
@@ -132,6 +142,70 @@ class ReportService:
                 "参数错误",
                 {"field": "reportType", "reason": "不支持的报告类型"},
             )
+
+    def _validate_year(self, year: int | None) -> None:
+        if year is None:
+            return
+        if year < VALID_YEAR_MIN or year > VALID_YEAR_MAX:
+            raise BusinessError(
+                400,
+                "Invalid request",
+                {"field": "year", "reason": f"year must be between {VALID_YEAR_MIN} and {VALID_YEAR_MAX}"},
+            )
+
+    def _validate_template(self, template_id: str | None, report_type: str) -> int | None:
+        parsed_id = self._parse_optional_external_id("tpl", template_id)
+        if parsed_id is None:
+            return None
+        template = (
+            self.db.query(ReportTemplate)
+            .filter(ReportTemplate.id == parsed_id, ReportTemplate.deleted_flag == 0)
+            .first()
+        )
+        if template is None:
+            raise BusinessError(400, "Invalid request", {"field": "templateId", "reason": "template not found"})
+        if template.status != "enabled":
+            raise BusinessError(400, "Invalid request", {"field": "templateId", "reason": "template is disabled"})
+        if template.report_type != report_type:
+            raise BusinessError(
+                400,
+                "Invalid request",
+                {"field": "templateId", "reason": "template report type does not match"},
+            )
+        return template.id
+
+    def _validate_materials(self, material_ids: list[str] | None, major: str | None) -> list[int]:
+        parsed_ids = self._parse_external_id_list("mat", material_ids)
+        if not parsed_ids:
+            return []
+        unique_ids = list(dict.fromkeys(parsed_ids))
+        materials = self.db.query(Material).filter(Material.id.in_(unique_ids)).all()
+        material_by_id = {item.id: item for item in materials}
+        for material_id in unique_ids:
+            item = material_by_id.get(material_id)
+            if item is None or self._material_status(material_id) == "deleted":
+                raise BusinessError(400, "Invalid request", {"field": "materialIds", "reason": "material not found"})
+            if self._material_status(material_id) != "enabled":
+                raise BusinessError(400, "Invalid request", {"field": "materialIds", "reason": "material is disabled"})
+            material_major = (self._material_tag(material_id, "major") or "").strip()
+            if major and material_major not in GENERAL_MAJORS and material_major != major:
+                raise BusinessError(
+                    400,
+                    "Invalid request",
+                    {"field": "materialIds", "reason": "material major does not match"},
+                )
+        return unique_ids
+
+    def _material_tag(self, material_id: int, key: str) -> str | None:
+        tag = (
+            self.db.query(MaterialTag)
+            .filter(MaterialTag.material_id == material_id, MaterialTag.tag_key == key)
+            .first()
+        )
+        return tag.tag_value if tag else None
+
+    def _material_status(self, material_id: int) -> str:
+        return self._material_tag(material_id, "status") or "enabled"
 
     def _report_list_item(self, report: ReportRecord) -> dict:
         return {

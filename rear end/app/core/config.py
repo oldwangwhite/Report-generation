@@ -17,6 +17,10 @@ class Settings:
         self.default_page = int(os.getenv("DEFAULT_PAGE", "1"))
         self.default_size = int(os.getenv("DEFAULT_SIZE", "10"))
         self.log_level = os.getenv("LOG_LEVEL", "INFO")
+        self.auth_secret_key = os.getenv("AUTH_SECRET_KEY", "report-generation-dev-secret")
+        self.access_token_expire_minutes = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "720"))
+        self.max_login_attempts = int(os.getenv("MAX_LOGIN_ATTEMPTS", "5"))
+        self.login_lock_minutes = int(os.getenv("LOGIN_LOCK_MINUTES", "30"))
         raw_cors_origins = os.getenv(
             "CORS_ORIGINS",
             "http://127.0.0.1:5173,http://localhost:5173",

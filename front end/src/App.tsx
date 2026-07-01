@@ -1,11 +1,13 @@
 import { BrowserRouter } from 'react-router-dom';
 import AppRouter from './router';
+import { AuthProvider } from './store/AuthContext';
 
-/** 应用入口组件，负责挂载前端路由。 */
 export default function App() {
     return (
-        <BrowserRouter>
-            <AppRouter />
-        </BrowserRouter>
+        <AuthProvider>
+            <BrowserRouter>
+                <AppRouter />
+            </BrowserRouter>
+        </AuthProvider>
     );
 }

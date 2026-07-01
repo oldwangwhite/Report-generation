@@ -36,6 +36,12 @@ class TemplateService:
     ) -> dict:
         if report_type not in {"summerCheck", "coalInventoryAudit"}:
             raise BusinessError(400, "参数错误", {"field": "reportType"})
+        if not file.filename or not file.filename.lower().endswith(".docx"):
+            raise BusinessError(
+                400,
+                "Invalid request",
+                {"field": "file", "reason": "template upload only supports DOCX files"},
+            )
         settings = get_settings()
         upload_dir = settings.upload_dir / "templates"
         upload_dir.mkdir(parents=True, exist_ok=True)
@@ -57,6 +63,8 @@ class TemplateService:
         return self._item(item)
 
     def update_template(self, template_id: str, payload) -> dict:
+        if payload.status not in {"enabled", "disabled"}:
+            raise BusinessError(400, "Invalid request", {"field": "status", "reason": "status must be enabled or disabled"})
         item = self._get(template_id)
         item.template_name = payload.templateName
         item.status = payload.status
@@ -67,6 +75,8 @@ class TemplateService:
         return self._item(item)
 
     def update_status(self, template_id: str, status: str) -> dict:
+        if status not in {"enabled", "disabled"}:
+            raise BusinessError(400, "Invalid request", {"field": "status", "reason": "status must be enabled or disabled"})
         item = self._get(template_id)
         item.status = status
         self.db.add(item)

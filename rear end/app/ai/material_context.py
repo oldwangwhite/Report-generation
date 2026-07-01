@@ -15,7 +15,7 @@ def build_material_context(
     major: str | None,
     material_ids: list[int] | None = None,
 ) -> str:
-    materials = _selected_materials(db, material_ids) if material_ids else _active_materials(db, major)
+    materials = _selected_materials(db, material_ids, major) if material_ids else _active_materials(db, major)
     blocks: list[str] = []
     for item in materials[:MAX_MATERIALS]:
         major_tag = _tag(db, item.id, "major") or "未指定专业"
@@ -32,7 +32,7 @@ def build_material_context(
     return "\n\n".join(blocks)[:MAX_CONTEXT_CHARS]
 
 
-def _selected_materials(db: Session, material_ids: list[int] | None) -> list[Material]:
+def _selected_materials(db: Session, material_ids: list[int] | None, major: str | None) -> list[Material]:
     ids = [item for item in material_ids or [] if item]
     if not ids:
         return []
@@ -42,8 +42,12 @@ def _selected_materials(db: Session, material_ids: list[int] | None) -> list[Mat
         .filter(MaterialTag.tag_key == "status", MaterialTag.tag_value == "enabled")
         .all()
     }
-    items = db.query(Material).filter(Material.id.in_(ids), Material.deleted_flag == 0).all()
-    item_by_id = {item.id: item for item in items if item.id in active_ids}
+    items = db.query(Material).filter(Material.id.in_(ids)).all()
+    item_by_id = {
+        item.id: item
+        for item in items
+        if item.id in active_ids and _material_major_allowed(_tag(db, item.id, "major"), major)
+    }
     return [item_by_id[item_id] for item_id in ids if item_id in item_by_id]
 
 
@@ -54,17 +58,27 @@ def _active_materials(db: Session, major: str | None) -> list[Material]:
         .filter(MaterialTag.tag_key == "status", MaterialTag.tag_value == "enabled")
         .all()
     ]
-    query = db.query(Material).filter(Material.id.in_(active_ids or [-1]), Material.deleted_flag == 0)
+    query = db.query(Material).filter(Material.id.in_(active_ids or [-1]))
     if major:
         major_ids = [
             row.material_id
             for row in db.query(MaterialTag)
-            .filter(MaterialTag.tag_key == "major", MaterialTag.tag_value == major)
+            .filter(
+                MaterialTag.tag_key == "major",
+                MaterialTag.tag_value.in_([major, "", "综合", "通用", "general", "common"]),
+            )
             .all()
         ]
         if major_ids:
             query = query.filter(Material.id.in_(major_ids))
     return query.order_by(Material.id.desc()).all()
+
+
+def _material_major_allowed(material_major: str | None, report_major: str | None) -> bool:
+    if not report_major:
+        return True
+    normalized = (material_major or "").strip()
+    return normalized in {"", report_major, "综合", "通用", "general", "common"}
 
 
 def _tag(db: Session, material_id: int, key: str) -> str | None:

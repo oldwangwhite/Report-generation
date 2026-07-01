@@ -2,12 +2,14 @@ from sqlalchemy import inspect, or_, text
 from sqlalchemy.orm import Session
 
 from app.ai.outline_generator import default_outline
+from app.core.auth_utils import hash_password
 from app.entity.template import ReportTemplate
 from app.entity.user import Role, User
 from app.service.permission_service import ensure_default_permissions
 
 
 def seed_reference_data(db: Session) -> None:
+    _ensure_user_columns(db)
     _ensure_report_columns(db)
 
     role_defs = [
@@ -41,7 +43,7 @@ def seed_reference_data(db: Session) -> None:
                 User(
                     id=user_id,
                     username=username,
-                    password_hash="local-test",
+                    password_hash=hash_password("Password123!"),
                     display_name=display_name,
                     role_id=roles[role_name].id,
                     is_active=True,
@@ -49,6 +51,8 @@ def seed_reference_data(db: Session) -> None:
             )
         else:
             user.display_name = user.display_name or display_name
+            if user.password_hash == "local-test":
+                user.password_hash = hash_password("Password123!")
             db.add(user)
 
     for report_type, name in [
@@ -104,4 +108,26 @@ def _ensure_report_columns(db: Session) -> None:
     if "material_ids" not in columns:
         column_type = "JSON DEFAULT '[]'" if dialect == "sqlite" else "JSON NULL"
         db.execute(text(f"ALTER TABLE report_records ADD COLUMN material_ids {column_type}"))
+    db.flush()
+
+
+def _ensure_user_columns(db: Session) -> None:
+    inspector = inspect(db.bind)
+    columns = {column["name"] for column in inspector.get_columns("users")}
+    dialect = db.bind.dialect.name if db.bind else "sqlite"
+
+    def column_type(sqlite_type: str, mysql_type: str) -> str:
+        return sqlite_type if dialect == "sqlite" else mysql_type
+
+    additions = {
+        "email": column_type("VARCHAR(128)", "VARCHAR(128) NULL"),
+        "email_verified": column_type("BOOLEAN DEFAULT 0", "BOOLEAN DEFAULT FALSE"),
+        "login_fail_count": column_type("INTEGER DEFAULT 0", "INT DEFAULT 0"),
+        "locked_until": column_type("DATETIME", "DATETIME NULL"),
+        "password_changed_at": column_type("DATETIME", "DATETIME NULL"),
+        "require_password_change": column_type("BOOLEAN DEFAULT 0", "BOOLEAN DEFAULT FALSE"),
+    }
+    for name, sql_type in additions.items():
+        if name not in columns:
+            db.execute(text(f"ALTER TABLE users ADD COLUMN {name} {sql_type}"))
     db.flush()

@@ -40,6 +40,10 @@ class ContentGenerationService:
         )
         chapter.status = "done"
         self.db.add(chapter)
+        report.status = "generated" if self._all_chapters_done(report.id) else "outlineGenerated"
+        if report.status == "generated":
+            report.generated_at = datetime.now(timezone.utc)
+        self.db.add(report)
         self.db.commit()
         return {
             "chapterId": chapter_id,

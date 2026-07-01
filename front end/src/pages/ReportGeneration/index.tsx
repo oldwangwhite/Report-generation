@@ -154,6 +154,22 @@ function hasManualEditedContent(contents: ChapterContent[], chapterIds?: string[
   });
 }
 
+function flattenTemplateOutline(structure?: Record<string, unknown>) {
+  const outline = Array.isArray(structure?.outline) ? structure.outline : [];
+  const rows: string[] = [];
+  const walk = (nodes: unknown[], prefix = '') => {
+    nodes.forEach((node, index) => {
+      if (!node || typeof node !== 'object') return;
+      const item = node as { title?: unknown; children?: unknown[] };
+      const no = prefix ? `${prefix}.${index + 1}` : `${index + 1}`;
+      if (typeof item.title === 'string') rows.push(`${no} ${item.title}`);
+      if (Array.isArray(item.children)) walk(item.children, no);
+    });
+  };
+  walk(outline);
+  return rows.slice(0, 8);
+}
+
 /** 用户端报告生成主页面。 */
 export default function ReportGenerationPage() {
   const [activeTab, setActiveTab] = useState('create');
@@ -179,7 +195,7 @@ export default function ReportGenerationPage() {
     ? contents.find((item) => item.chapterId === selectedChapter.chapterId)
     : undefined;
 
-  const { generating, percent, progressText, generate } = useReportSSE({
+  const { generating, percent, progressText, generate, cancelGenerate } = useReportSSE({
     report,
     outline,
     contents,
@@ -269,10 +285,32 @@ export default function ReportGenerationPage() {
 
   const currentMaterials = useMemo(() => {
     const enabled = materials.filter((item) => item.status === 'enabled');
-    return watchedMajor ? enabled.filter((item) => !item.major || item.major === watchedMajor) : enabled;
+    return watchedMajor
+      ? enabled.filter((item) => !item.major || item.major === watchedMajor || ['综合', '通用', 'general', 'common'].includes(item.major))
+      : enabled;
   }, [materials, watchedMajor]);
 
+  useEffect(() => {
+    if (!watchedTemplateId) return;
+    const template = templates.find((item) => item.templateId === watchedTemplateId);
+    if (template && watchedReportType && template.reportType !== watchedReportType) {
+      form.setFieldValue('templateId', undefined);
+      message.info('报告类型已切换，已清空不匹配的模板');
+    }
+  }, [form, templates, watchedReportType, watchedTemplateId]);
+
+  useEffect(() => {
+    if (!watchedMaterialIds?.length) return;
+    const allowed = new Set(currentMaterials.map((item) => item.materialId));
+    const nextIds = watchedMaterialIds.filter((item) => allowed.has(item));
+    if (nextIds.length !== watchedMaterialIds.length) {
+      form.setFieldValue('materialIds', nextIds);
+      message.info('专业已切换，已清空不匹配的素材');
+    }
+  }, [currentMaterials, form, watchedMaterialIds]);
+
   const selectedTemplate = templates.find((item) => item.templateId === watchedTemplateId);
+  const selectedTemplateOutline = flattenTemplateOutline(selectedTemplate?.structure);
   const selectedMaterials = materials.filter((item) => watchedMaterialIds?.includes(item.materialId));
   const doneChapters = outline.filter((item) => item.status === 'done').length;
   const failedChapters = outline.filter((item) => item.status === 'failed').length;
@@ -465,13 +503,31 @@ export default function ReportGenerationPage() {
       message.warning('请先创建报告');
       return;
     }
+    const unfinishedCount = outline.filter((item) => item.status !== 'done').length;
+    if (unfinishedCount > 0) {
+      Modal.confirm({
+        title: '报告内容尚未完整生成',
+        content: `当前还有 ${unfinishedCount} 个章节未生成，导出文件会包含空章节提示。是否继续导出？`,
+        okText: '继续导出',
+        cancelText: '返回检查',
+        onOk: () => doExport(fileFormat),
+      });
+      return;
+    }
+    await doExport(fileFormat);
+  };
+
+  const doExport = async (fileFormat: ExportFormat) => {
     setExporting(true);
-    const values = form.getFieldsValue();
-    const task = await createExport(report.reportId, fileFormat, values.templateId);
-    const result = await getExportStatus(report.reportId, task.exportId, fileFormat);
-    setLatestExport(result);
-    setExporting(false);
-    message.success(`${fileFormat.toUpperCase()} 导出完成`);
+    try {
+      const values = form.getFieldsValue();
+      const task = await createExport(report!.reportId, fileFormat, values.templateId);
+      const result = await getExportStatus(report!.reportId, task.exportId, fileFormat);
+      setLatestExport(result);
+      message.success(`${fileFormat.toUpperCase()} 导出完成`);
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleLoadPreview = async () => {
@@ -604,6 +660,15 @@ export default function ReportGenerationPage() {
                         type={selectedTemplate ? 'success' : 'info'}
                         showIcon
                         message={selectedTemplate ? `已选择模板：${selectedTemplate.templateName}` : '未选择模板时，系统会使用当前报告类型的默认导出样式。'}
+                        description={
+                          selectedTemplateOutline.length ? (
+                            <div className="template-outline-preview">
+                              {selectedTemplateOutline.map((item) => (
+                                <span key={item}>{item}</span>
+                              ))}
+                            </div>
+                          ) : undefined
+                        }
                       />
                       <Alert
                         type={selectedMaterials.length ? 'success' : 'warning'}
@@ -782,6 +847,11 @@ export default function ReportGenerationPage() {
                     <Button block loading={generating} onClick={() => generateWithConfirm({ regenerate: true, forceOverwrite: true })}>
                       重新生成全文
                     </Button>
+                    {generating && (
+                      <Button danger block onClick={cancelGenerate}>
+                        取消生成
+                      </Button>
+                    )}
                     <Button block onClick={() => setStep(3)}>
                       下一步：预览导出
                     </Button>
@@ -910,5 +980,3 @@ function PreviewPanel(props: {
     </Row>
   );
 }
-
-

@@ -2,7 +2,7 @@ from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.errors import NotFoundError
+from app.core.errors import BusinessError, NotFoundError
 from app.core.security import CurrentUser
 from app.entity.material import Material, MaterialTag
 from app.utils.datetime_utils import isoformat
@@ -35,9 +35,16 @@ class MaterialService:
                 .all()
             ]
             query = query.filter(Material.id.in_(ids or [-1]))
-        total = query.count()
-        items = query.order_by(Material.id.desc()).offset((page - 1) * size).limit(size).all()
-        return [self._item(item) for item in items if self._status(item.id) != "deleted"], total
+        visible_ids = [
+            item.id
+            for item in query.order_by(Material.id.desc()).all()
+            if self._status(item.id) != "deleted"
+        ]
+        total = len(visible_ids)
+        page_ids = visible_ids[(page - 1) * size : page * size]
+        items = self.db.query(Material).filter(Material.id.in_(page_ids or [-1])).all()
+        item_by_id = {item.id: item for item in items}
+        return [self._item(item_by_id[item_id]) for item_id in page_ids if item_id in item_by_id], total
 
     def get_material(self, material_id: str) -> dict:
         return self._item(self._get(material_id))
@@ -74,6 +81,8 @@ class MaterialService:
         return self._item(item)
 
     def update_status(self, material_id: str, status: str) -> dict:
+        if status not in {"enabled", "disabled"}:
+            raise BusinessError(400, "Invalid request", {"field": "status", "reason": "status must be enabled or disabled"})
         item = self._get(material_id)
         self._set_tag(item.id, "status", status)
         self.db.commit()
@@ -113,6 +122,7 @@ class MaterialService:
         return self._tag(material_id, "status") or "enabled"
 
     def _item(self, item: Material) -> dict:
+        parse_supported = (item.file_type or "").lower() in {"txt", "md", "csv", "docx"}
         return {
             "materialId": to_external_id("mat", item.id),
             "materialName": item.name,
@@ -122,6 +132,13 @@ class MaterialService:
             "fileSize": item.file_size,
             "fileType": item.file_type,
             "description": item.description,
+            "parseSupported": parse_supported,
+            "parseStatus": "supported" if parse_supported else "uploaded_only",
+            "parseMessage": (
+                "Can be used for AI text extraction"
+                if parse_supported
+                else "Uploaded successfully, but this file type is not parsed into AI context yet"
+            ),
             "status": self._status(item.id),
             "createdBy": to_external_id("usr", item.created_by),
             "createdAt": isoformat(item.created_at),
