@@ -22,6 +22,22 @@ const iconMap: Record<string, React.ReactNode> = {
   knowledge: <DatabaseOutlined />,
 };
 
+const svgToDataUri = (svg: string) => `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+
+const moduleImageMap: Record<string, string> = {
+  qa: svgToDataUri(
+    '<svg width="480" height="320" viewBox="0 0 480 320" xmlns="http://www.w3.org/2000/svg"><rect width="480" height="320" rx="0" fill="#ecfdf5"/><rect x="70" y="70" width="340" height="180" rx="16" fill="#fff"/><circle cx="120" cy="120" r="24" fill="#0f766e"/><rect x="160" y="100" width="190" height="14" rx="7" fill="#94d3a6"/><rect x="160" y="130" width="230" height="14" rx="7" fill="#cef7e0"/><rect x="90" y="170" width="300" height="48" rx="10" fill="#f0fdf4"/></svg>',
+  ),
+  report: svgToDataUri(
+    '<svg width="480" height="320" viewBox="0 0 480 320" xmlns="http://www.w3.org/2000/svg"><rect width="480" height="320" fill="#eff6ff"/><rect x="128" y="40" width="224" height="240" rx="14" fill="#fff" stroke="#bdd7ff" stroke-width="2"/><path d="M300 40v54h52" fill="#dbeafe"/><path d="M300 40l52 54" fill="none" stroke="#93c5fd" stroke-width="2"/><rect x="160" y="86" width="128" height="18" rx="9" fill="#1769e0"/><rect x="160" y="126" width="154" height="12" rx="6" fill="#94c5fd"/><rect x="160" y="154" width="130" height="12" rx="6" fill="#bdd7ff"/><rect x="160" y="182" width="168" height="12" rx="6" fill="#bdd7ff"/><rect x="160" y="218" width="126" height="34" rx="8" fill="#dbeafe"/><rect x="296" y="218" width="28" height="34" rx="6" fill="#60a5fa"/></svg>',
+  ),
+  knowledge: svgToDataUri(
+    '<svg width="480" height="320" viewBox="0 0 480 320" xmlns="http://www.w3.org/2000/svg"><rect width="480" height="320" fill="#faf5ff"/><rect x="92" y="72" width="78" height="178" rx="10" fill="#7c3aed"/><rect x="186" y="54" width="82" height="196" rx="10" fill="#a78bfa"/><rect x="284" y="86" width="86" height="164" rx="10" fill="#db2777"/><rect x="112" y="112" width="38" height="10" rx="5" fill="#fff"/><rect x="112" y="134" width="28" height="8" rx="4" fill="#ddd6fe"/><rect x="208" y="98" width="38" height="10" rx="5" fill="#fff"/><rect x="208" y="120" width="30" height="8" rx="4" fill="#ede9fe"/><rect x="306" y="132" width="42" height="10" rx="5" fill="#fff"/><rect x="306" y="154" width="30" height="8" rx="4" fill="#fce7f3"/><rect x="82" y="250" width="306" height="16" rx="8" fill="#e9d5ff"/></svg>',
+  ),
+};
+
+const getModuleImage = (id: string) => moduleImageMap[id] || moduleImageMap.qa;
+
 const PublicHome = () => {
   const [modules, setModules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +57,8 @@ const PublicHome = () => {
           moduleList.map((item: any) => ({
             ...item,
             icon: iconMap[item.id] || <MessageOutlined />,
+            imageUrl: item.imageUrl || getModuleImage(item.id),
+            fallbackImageUrl: getModuleImage(item.id),
           }))
         );
       })
@@ -145,7 +163,16 @@ const PublicHome = () => {
               </div>
               <div style={{ display: 'flex', gap: 16, opacity: 0, animation: 'fadeInUp 0.6s ease forwards', animationDelay: '0.4s' }}>
                 <Button type="primary" size="large" icon={<ArrowRightOutlined />} onClick={handleStart} style={{ background: '#1890ff', borderColor: '#1890ff', borderRadius: 6, height: 44, padding: '0 28px', fontSize: 15, fontWeight: 500 }}>立即体验</Button>
-                <Button size="large" style={{ background: '#fff', borderColor: '#d9d9d9', color: '#333', borderRadius: 6, height: 44, padding: '0 28px', fontSize: 15 }}>了解更多</Button>
+                <Button
+                  size="large"
+                  onClick={() => {
+                    setLearnMoreModuleId(currentModule.id);
+                    setShowLearnMore(true);
+                  }}
+                  style={{ background: '#fff', borderColor: '#d9d9d9', color: '#333', borderRadius: 6, height: 44, padding: '0 28px', fontSize: 15 }}
+                >
+                  了解更多
+                </Button>
               </div>
             </div>
 
@@ -154,18 +181,13 @@ const PublicHome = () => {
               <div style={{ width: 480, height: 320, background: '#fff', border: `1px solid ${currentModule.color}30`, borderRadius: 16, overflow: 'hidden', position: 'relative', opacity: 0, animation: 'fadeInScale 0.8s ease forwards', animationDelay: '0.2s', boxShadow: '0 4px 20px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04)', backdropFilter: 'blur(10px)' }}>
                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: currentModule.gradient, zIndex: 2 }} />
                 <img
-                  src={currentModule.imageUrl}
+                  src={currentModule.imageUrl || currentModule.fallbackImageUrl}
                   alt={currentModule.title}
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                   onError={(e) => {
                     const target = e.currentTarget;
-                    target.style.display = 'none';
-                    const parent = target.parentElement!;
-                    parent.style.background = currentModule.gradient;
-                    parent.style.display = 'flex';
-                    parent.style.alignItems = 'center';
-                    parent.style.justifyContent = 'center';
-                    parent.innerHTML += `<span style="color:#fff;font-size:18px;opacity:0.9;">${currentModule.title} 示意图</span>`;
+                    target.onerror = null;
+                    target.src = currentModule.fallbackImageUrl || getModuleImage(currentModule.id);
                   }}
                 />
                 <div style={{ position: 'absolute', top: 16, right: 16, width: 40, height: 40, border: `2px solid ${currentModule.color}20`, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, backdropFilter: 'blur(4px)' }}>

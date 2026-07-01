@@ -27,11 +27,11 @@ const Login = () => {
   const [captchaVerified, setCaptchaVerified] = useState(false);
   const [slideModalVisible, setSlideModalVisible] = useState(false);
   const [email, setEmail] = useState('');
-  const [emailCode, setEmailCode] = useState('');
+  const [, setEmailCode] = useState('');
   const [sendEmailLoading, setSendEmailLoading] = useState(false);
   const [emailCountdown, setEmailCountdown] = useState(0);
   const [phone, setPhone] = useState('');
-  const [phoneCode, setPhoneCode] = useState('');
+  const [, setPhoneCode] = useState('');
   const [sendPhoneLoading, setSendPhoneLoading] = useState(false);
   const [phoneCountdown, setPhoneCountdown] = useState(0);
 

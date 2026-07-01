@@ -7,7 +7,6 @@ import {
   SettingOutlined,
   ThunderboltOutlined,
   DeploymentUnitOutlined,
-  BarChartOutlined,
 } from '@ant-design/icons';
 
 const { Title, Paragraph, Text } = Typography;

@@ -6,7 +6,6 @@ import {
   DownloadOutlined,
   HistoryOutlined,
   SettingOutlined,
-  CheckCircleOutlined,
 } from '@ant-design/icons';
 
 const { Title, Paragraph, Text } = Typography;
