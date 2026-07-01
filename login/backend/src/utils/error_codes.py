@@ -1,0 +1,13 @@
+# backend/app/utils/error_codes.py
+class ErrorCode:
+    SUCCESS = 200
+    BAD_REQUEST = 400
+    VALIDATION_ERROR = 400
+    UNAUTHORIZED = 401
+    ACCOUNT_FROZEN = 401
+    CAPTCHA_REQUIRED = 400
+    INVALID_CAPTCHA = 400
+    FORBIDDEN = 403
+    NOT_FOUND = 404
+    CONFLICT = 409
+    INTERNAL_ERROR = 500
