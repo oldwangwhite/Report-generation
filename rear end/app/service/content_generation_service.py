@@ -11,7 +11,7 @@ from app.ai.chapter_generator import (
     generate_table,
 )
 from app.ai.model_client import LLMCallError, LLMConfigError, generate_chapter_with_llm
-from app.core.errors import NotFoundError
+from app.core.errors import BusinessError, NotFoundError
 from app.core.security import CurrentUser
 from app.entity.outline import ReportOutline
 from app.repository.content_repository import ContentRepository
@@ -53,14 +53,7 @@ class ContentGenerationService:
 
     def stream_generate(self, report_id: str, payload, user: CurrentUser) -> Iterable[str]:
         report = self.report_service._get_report_for_user(report_id, user)
-        chapter_ids = [parse_external_id("chap", item) for item in payload.chapter_ids]
-        chapters_query = self.db.query(ReportOutline).filter(
-            ReportOutline.report_id == report.id,
-            ReportOutline.deleted_flag == 0,
-        )
-        if chapter_ids:
-            chapters_query = chapters_query.filter(ReportOutline.id.in_(chapter_ids))
-        chapters = chapters_query.order_by(ReportOutline.chapter_no).all()
+        chapters = self._selected_chapters(report.id, payload.chapter_ids)
         total = len(chapters)
         completed = 0
         report.status = "generating"
@@ -76,7 +69,7 @@ class ContentGenerationService:
             else:
                 try:
                     content = self._generate_chapter_content(report, chapter)
-                except (LLMConfigError, LLMCallError) as exc:
+                except (LLMConfigError, LLMCallError, Exception) as exc:
                     yield self._mark_failed(report, chapter, str(exc))
                     return
                 tables = [generate_table(report, chapter, content)] if chapter.level == 1 else []
@@ -164,7 +157,7 @@ class ContentGenerationService:
         else:
             try:
                 content = self._generate_chapter_content(report, chapter, extra_prompt)
-            except (LLMConfigError, LLMCallError) as exc:
+            except (LLMConfigError, LLMCallError, Exception) as exc:
                 yield self._mark_failed(report, chapter, str(exc))
                 return
             tables = [generate_table(report, chapter, content)] if chapter.level == 1 else []
@@ -261,6 +254,37 @@ class ContentGenerationService:
             .count()
         )
         return unfinished == 0
+
+    def validate_generate_request(self, report_id: str, payload, user: CurrentUser) -> None:
+        report = self.report_service._get_report_for_user(report_id, user)
+        self._selected_chapters(report.id, payload.chapter_ids)
+
+    def _selected_chapters(self, report_id: int, chapter_ids: list[str]) -> list[ReportOutline]:
+        parsed_ids: list[int] = []
+        for item in chapter_ids or []:
+            try:
+                parsed_ids.append(parse_external_id("chap", item))
+            except NotFoundError:
+                raise BusinessError(400, "Invalid request", {"field": "chapterIds", "reason": "invalid chapter id"}) from None
+        query = self.db.query(ReportOutline).filter(
+            ReportOutline.report_id == report_id,
+            ReportOutline.deleted_flag == 0,
+        )
+        if parsed_ids:
+            query = query.filter(ReportOutline.id.in_(parsed_ids))
+        chapters = query.order_by(ReportOutline.chapter_no).all()
+        if parsed_ids:
+            found_ids = {chapter.id for chapter in chapters}
+            missing = [to_external_id("chap", item) for item in parsed_ids if item not in found_ids]
+            if missing:
+                raise BusinessError(
+                    400,
+                    "Invalid request",
+                    {"field": "chapterIds", "reason": "chapter does not exist in this report", "missing": missing},
+                )
+        if not chapters:
+            raise BusinessError(400, "Invalid request", {"field": "chapterIds", "reason": "report outline is empty"})
+        return chapters
 
     def _get_chapter(self, report_id: int, chapter_id: str) -> ReportOutline:
         parsed = parse_external_id("chap", chapter_id)

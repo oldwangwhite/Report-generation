@@ -178,3 +178,18 @@ def test_regenerate_force_overwrite_replaces_manual_edit(client, auth_headers):
     detail = client.get(f"/api/reports/{report_id}", headers=auth_headers).json()
     assert detail["data"]["contents"][0]["content"] != "手动内容"
     assert "检查依据" in detail["data"]["contents"][0]["content"]
+
+
+def test_content_generate_rejects_unknown_chapter_id(client, auth_headers):
+    report_id, _ = prepared_report_with_outline(client, auth_headers)
+
+    response = client.post(
+        f"/api/reports/{report_id}/content/generate",
+        headers={**auth_headers, "Accept": "text/event-stream"},
+        json={"chapterIds": ["chap_999999"], "regenerate": False, "forceOverwrite": False},
+    )
+
+    assert response.status_code == 400
+    body = response.json()
+    assert body["code"] == 400
+    assert body["data"]["field"] == "chapterIds"

@@ -6,6 +6,8 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
+from app.core.errors import BusinessError
 from app.core.response import api_response
 from app.core.security import CurrentUser, get_current_user
 from app.db.session import get_db
@@ -21,6 +23,7 @@ from app.schemas.auth import (
     SlideVerifyRequest,
 )
 from app.service.auth_service import AuthService
+from app.service.verification_code_service import VerificationCodeService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -59,9 +62,9 @@ def _verify_captcha(captcha_id: str | None, code: str | None) -> bool:
 
 
 def _store_code(kind: str, target: str) -> str:
-    dev_code = _code()
-    _code_store[f"{kind}:{target}"] = (dev_code, datetime.utcnow() + timedelta(minutes=5))
-    return dev_code
+    code = _code()
+    _code_store[f"{kind}:{target}"] = (code, datetime.utcnow() + timedelta(minutes=5))
+    return code
 
 
 def _verify_code(kind: str, target: str | None, code: str) -> bool:
@@ -72,13 +75,39 @@ def _verify_code(kind: str, target: str | None, code: str) -> bool:
     return bool(item and item[0] == code)
 
 
+def _consume_verified_slide(captcha_id: str | None) -> None:
+    if not captcha_id:
+        raise BusinessError(400, "请先完成滑块验证")
+    _purge_expired()
+    item = _slide_store.pop(captcha_id, None)
+    if item is None:
+        raise BusinessError(400, "滑块验证码已过期或无效")
+    if not item[2]:
+        raise BusinessError(400, "请先完成滑块验证")
+
+
+def _verify_register_guard(payload: RegisterRequest) -> None:
+    has_email = bool((payload.email or "").strip())
+    has_phone = bool((payload.phone or "").strip())
+    if not has_email and not has_phone:
+        raise BusinessError(400, "请至少填写手机号或邮箱")
+
+    if payload.fromEmailLogin:
+        if not has_email or not _verify_code("email", payload.email, payload.captchaCode or ""):
+            raise BusinessError(400, "邮箱验证码错误或已过期")
+        return
+    if payload.fromPhoneLogin:
+        if not has_phone or not _verify_code("phone", payload.phone, payload.captchaCode or ""):
+            raise BusinessError(400, "短信验证码错误或已过期")
+        return
+
+    if not _verify_captcha(payload.captchaId, payload.captchaCode):
+        raise BusinessError(400, "验证码错误")
+
+
 @router.post("/register")
 def register(payload: RegisterRequest, request: Request, db: Session = Depends(get_db)):
-    if not payload.fromEmailLogin and not payload.fromPhoneLogin:
-        if (payload.captchaId or payload.captchaCode) and not _verify_captcha(
-            payload.captchaId, payload.captchaCode
-        ):
-            return api_response(None, request, code=400, message="验证码错误")
+    _verify_register_guard(payload)
     data = AuthService(db).register(
         username=payload.username,
         password=payload.password,
@@ -91,10 +120,7 @@ def register(payload: RegisterRequest, request: Request, db: Session = Depends(g
 
 @router.post("/login")
 def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)):
-    if payload.captchaId:
-        item = _slide_store.get(payload.captchaId)
-        if item and not item[2]:
-            return api_response(None, request, code=400, message="请先完成滑块验证")
+    _consume_verified_slide(payload.captchaId)
     client_ip = request.client.host if request.client else None
     data = AuthService(db).login(payload.username, payload.password, client_ip)
     return api_response(data, request, message="登录成功")
@@ -103,7 +129,7 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
 @router.post("/login/email")
 def login_by_email(payload: CodeLoginRequest, request: Request, db: Session = Depends(get_db)):
     if not _verify_code("email", payload.email, payload.code):
-        return api_response(None, request, code=400, message="验证码错误")
+        raise BusinessError(400, "验证码错误")
     client_ip = request.client.host if request.client else None
     return api_response(
         AuthService(db).login_by_email(payload.email or "", client_ip),
@@ -115,7 +141,7 @@ def login_by_email(payload: CodeLoginRequest, request: Request, db: Session = De
 @router.post("/login/phone")
 def login_by_phone(payload: CodeLoginRequest, request: Request, db: Session = Depends(get_db)):
     if not _verify_code("phone", payload.phone, payload.code):
-        return api_response(None, request, code=400, message="验证码错误")
+        raise BusinessError(400, "验证码错误")
     client_ip = request.client.host if request.client else None
     return api_response(
         AuthService(db).login_by_phone(payload.phone or "", client_ip),
@@ -126,14 +152,14 @@ def login_by_phone(payload: CodeLoginRequest, request: Request, db: Session = De
 
 @router.post("/email/send-code")
 def send_email_code(payload: SendEmailCodeRequest, request: Request):
-    dev_code = _store_code("email", payload.email)
-    return api_response({"devCode": dev_code}, request, message="验证码已发送")
+    data = VerificationCodeService(_code_store).issue("email", payload.email, _code())
+    return api_response(data, request, message="验证码已发送")
 
 
 @router.post("/phone/send-code")
 def send_phone_code(payload: SendPhoneCodeRequest, request: Request):
-    dev_code = _store_code("phone", payload.phone)
-    return api_response({"devCode": dev_code}, request, message="验证码已发送")
+    data = VerificationCodeService(_code_store).issue("phone", payload.phone, _code())
+    return api_response(data, request, message="验证码已发送")
 
 
 @router.get("/me")
@@ -209,10 +235,10 @@ def verify_slide_captcha(payload: SlideVerifyRequest, request: Request):
     _purge_expired()
     item = _slide_store.get(payload.captchaId)
     if item is None:
-        return api_response({"valid": False}, request, code=400, message="验证码已过期")
+        raise BusinessError(400, "验证码已过期")
     target, expires_at, _ = item
     if abs(payload.distance - target) > 8:
-        return api_response({"valid": False}, request, code=400, message="验证失败")
+        raise BusinessError(400, "验证失败")
     _slide_store[payload.captchaId] = (target, expires_at, True)
     return api_response({"valid": True}, request)
 
@@ -231,17 +257,17 @@ def captcha(request: Request):
         </svg>
         """
     )
-    return api_response(
-        {"captchaId": captcha_id, "captchaImage": svg, "image": svg, "devCode": value},
-        request,
-    )
+    data = {"captchaId": captcha_id, "captchaImage": svg, "image": svg}
+    if get_settings().expose_dev_verification_codes:
+        data["devCode"] = value
+    return api_response(data, request)
 
 
 @router.post("/forgot-password/verify")
 def forgot_verify(payload: ForgotVerifyRequest, request: Request, db: Session = Depends(get_db)):
     kind = "email" if "@" in payload.contact else "phone"
     if not _verify_code(kind, payload.contact, payload.code):
-        return api_response(None, request, code=400, message="验证码错误")
+        raise BusinessError(400, "验证码错误")
     data = AuthService(db).create_reset_token(payload.contact)
     _reset_store[data["token"]] = (data["username"], datetime.utcnow() + timedelta(minutes=10))
     return api_response(data, request)
@@ -252,7 +278,7 @@ def forgot_reset(payload: ForgotResetRequest, request: Request, db: Session = De
     _purge_expired()
     item = _reset_store.pop(payload.token, None)
     if item is None:
-        return api_response(None, request, code=401, message="重置令牌已过期或无效")
+        raise BusinessError(401, "重置令牌已过期或无效")
     username, _ = item
     AuthService(db).reset_password(username, payload.newPassword)
     return api_response(None, request, message="密码重置成功")

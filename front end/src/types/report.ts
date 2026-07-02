@@ -83,6 +83,8 @@ export interface ExportFile {
   fileSize: number;
   downloadUrl: string;
   status: 'exporting' | 'exported' | 'exportFailed';
+  incompleteChapterCount?: number;
+  hasIncompleteContent?: boolean;
   createdAt: string;
 }
 

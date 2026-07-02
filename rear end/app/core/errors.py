@@ -16,8 +16,8 @@ class BusinessError(Exception):
 
 
 class UnauthorizedError(BusinessError):
-    def __init__(self) -> None:
-        super().__init__(401, "Unauthorized")
+    def __init__(self, message: str = "未认证或凭证过期") -> None:
+        super().__init__(401, message)
 
 
 class ForbiddenError(BusinessError):

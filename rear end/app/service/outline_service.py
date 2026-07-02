@@ -113,11 +113,21 @@ class OutlineService:
             if parent_external is None:
                 chapter.parent_id = None
             elif parent_external in id_by_external:
-                chapter.parent_id = id_by_external[parent_external]
+                parent_id = id_by_external[parent_external]
+                if parent_id == chapter.id:
+                    raise BusinessError(400, "Invalid request", {"field": "parentId", "reason": "chapter cannot be its own parent"})
+                chapter.parent_id = parent_id
             elif parent_external in id_by_client_key:
-                chapter.parent_id = id_by_client_key[parent_external]
+                parent_id = id_by_client_key[parent_external]
+                if parent_id == chapter.id:
+                    raise BusinessError(400, "Invalid request", {"field": "parentId", "reason": "chapter cannot be its own parent"})
+                chapter.parent_id = parent_id
             else:
-                chapter.parent_id = parse_external_id("chap", parent_external)
+                raise BusinessError(
+                    400,
+                    "Invalid request",
+                    {"field": "parentId", "reason": "parent chapter does not exist in this report outline"},
+                )
 
         for old_id, chapter in existing.items():
             if old_id not in submitted_ids and chapter not in chapters:

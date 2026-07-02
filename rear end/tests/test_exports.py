@@ -4,6 +4,7 @@ from docx import Document
 from docx.enum.style import WD_STYLE_TYPE
 
 from tests.test_content_stream import prepared_report_with_outline
+from tests.test_reports import create_report
 
 
 def prepare_generated_report(client, headers):
@@ -82,7 +83,8 @@ def test_create_status_history_and_download_docx_uses_template(client, auth_head
 
     assert created["code"] == 200
     assert created["data"]["exportId"].startswith("exp_")
-    assert created["data"]["status"] == "exporting"
+    assert created["data"]["status"] == "exported"
+    assert created["data"]["hasIncompleteContent"] is True
     export_id = created["data"]["exportId"]
 
     status = client.get(
@@ -113,10 +115,26 @@ def test_create_status_history_and_download_docx_uses_template(client, auth_head
     text = docx_text(download.content)
     assert "用户编辑后的章节正文。" in text
     assert "设备检查情况表" in text
-    assert "报告类型：迎峰度夏检查报告" in text
+    assert "报告类型" in text
+    assert "迎峰度夏检查报告" in text
     assert "summerCheck" not in text
     assert "模板占位内容" not in text
 
     document = Document(BytesIO(download.content))
     body_paragraph = next(p for p in document.paragraphs if p.text == "用户编辑后的章节正文。")
     assert body_paragraph.style.name == "CustomBody"
+
+
+def test_export_rejects_empty_report(client, auth_headers):
+    report_id = create_report(client, auth_headers)["data"]["reportId"]
+
+    response = client.post(
+        f"/api/reports/{report_id}/exports",
+        headers=auth_headers,
+        json={"fileFormat": "txt", "useLatestSavedContent": True},
+    )
+
+    assert response.status_code == 400
+    body = response.json()
+    assert body["code"] == 400
+    assert body["message"] == "当前报告尚未生成大纲，不能导出"

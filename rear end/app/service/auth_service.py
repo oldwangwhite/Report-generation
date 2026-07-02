@@ -84,9 +84,9 @@ class AuthService:
             .first()
         )
         if user is None:
-            raise UnauthorizedError()
+            raise UnauthorizedError("账号或密码错误")
         if not user.is_active:
-            raise UnauthorizedError()
+            raise UnauthorizedError("账号已停用")
         if user.locked_until and user.locked_until > datetime.utcnow():
             raise BusinessError(401, "账户已被锁定，请稍后再试")
         if not verify_password(password, user.password_hash):
@@ -96,7 +96,7 @@ class AuthService:
                 user.locked_until = datetime.utcnow() + timedelta(minutes=settings.login_lock_minutes)
             self.db.add(user)
             self.db.commit()
-            raise UnauthorizedError()
+            raise UnauthorizedError("账号或密码错误")
 
         user.login_fail_count = 0
         user.locked_until = None
@@ -171,7 +171,7 @@ class AuthService:
 
     def _login_existing_user(self, user: User, ip_address: str | None = None) -> dict:
         if not user.is_active:
-            raise UnauthorizedError()
+            raise UnauthorizedError("账号已停用")
         if user.locked_until and user.locked_until > datetime.utcnow():
             raise BusinessError(401, "账户已被锁定，请稍后再试")
         user.login_fail_count = 0

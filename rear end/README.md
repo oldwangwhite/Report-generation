@@ -22,13 +22,31 @@ EXPORT_DIR=./exports
 
 The provided database already has users, roles, materials, configs, and logs. On startup the app creates the report module tables if absent and seeds local acceptance users/templates.
 
+Configure verification delivery before using phone/email login:
+
+```bash
+SMTP_HOST=smtp.163.com
+SMTP_PORT=465
+SMTP_USER=your_email@163.com
+SMTP_PASSWORD=your_smtp_auth_code
+SMTP_FROM=your_email@163.com
+
+SMS_HTTP_URL=https://your-sms-provider.example/send
+SMS_HTTP_HEADERS_JSON={"Authorization":"Bearer your-token"}
+SMS_HTTP_BODY_TEMPLATE={"phone":"$phone","content":"您的验证码是 $code，5 分钟内有效。"}
+```
+
+The backend no longer returns verification codes to the browser by default. For automated tests only, use `EXPOSE_DEV_VERIFICATION_CODES=true`.
+
 Start the API:
 
 ```bash
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-## Local Tokens
+## Static Test Tokens
+
+Static tokens are disabled by default outside `APP_ENV=test`. For local acceptance scripts only, set `ENABLE_STATIC_TEST_TOKENS=true`.
 
 - `Bearer user-token`
 - `Bearer other-user-token`

@@ -28,10 +28,21 @@ def list_templates(
     reportType: str | None = None,
     status: str | None = None,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(admin_user),
 ):
     items, total = TemplateService(db).list_templates(page, size, reportType, status)
     return api_response(page_result(items, total, page, size), request)
+
+
+@router.get("/options")
+def list_template_options(
+    request: Request,
+    reportType: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    items, total = TemplateService(db).list_templates(1, 100, reportType, "enabled")
+    return api_response(page_result(items, total, 1, 100), request)
 
 
 @router.get("/{template_id}")
@@ -39,7 +50,7 @@ def get_template(
     template_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(admin_user),
 ):
     return api_response(TemplateService(db).get_template(template_id), request)
 

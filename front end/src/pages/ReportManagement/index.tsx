@@ -166,9 +166,17 @@ function acceptTemplateFile(file: File) {
 }
 
 function acceptMaterialFile(file: File) {
-    const supported = ['.docx', '.txt', '.md', '.csv', '.pdf', '.xlsx'];
+    const supported = ['.doc', '.docx', '.txt', '.md', '.csv', '.pdf', '.xlsx'];
     if (!supported.some((suffix) => file.name.toLowerCase().endsWith(suffix))) {
-        message.error('素材支持 DOCX/TXT/MD/CSV/PDF/XLSX 文件');
+        message.error('素材支持 DOC/DOCX/TXT/MD/CSV/PDF/XLSX 文件');
+        return Upload.LIST_IGNORE;
+    }
+    if (file.size <= 0) {
+        message.error('不能上传空文件');
+        return Upload.LIST_IGNORE;
+    }
+    if (file.size > 50 * 1024 * 1024) {
+        message.error('单个素材文件不能超过 50MB');
         return Upload.LIST_IGNORE;
     }
     return true;
@@ -683,6 +691,7 @@ export default function ReportManagementPage() {
 
             <Modal title="上传报告模板" open={templateModalOpen} onOk={handleUploadTemplate} confirmLoading={actioning === 'template-upload'} onCancel={() => setTemplateModalOpen(false)}>
                 <Form form={templateForm} layout="vertical">
+                    <Paragraph type="secondary">模板仅支持 DOCX，建议使用含标题样式的 Word 文件，最大 50MB。</Paragraph>
                     <Form.Item name="templateName" label="模板名称" rules={[{ required: true }]}><Input /></Form.Item>
                     <Form.Item name="reportType" label="报告类型" rules={[{ required: true }]}>
                         <Select options={[
@@ -706,6 +715,7 @@ export default function ReportManagementPage() {
 
             <Modal title="上传素材" open={materialModalOpen} onOk={handleUploadMaterial} confirmLoading={actioning === 'material-upload'} onCancel={() => setMaterialModalOpen(false)}>
                 <Form form={materialForm} layout="vertical" initialValues={{ materialType: 'standard' }}>
+                    <Paragraph type="secondary">可上传 DOC/DOCX/TXT/MD/CSV/PDF/XLSX，最大 50MB；当前 DOCX/TXT/MD/CSV 可参与 AI 正文解析，PDF/XLSX 仅保存文件信息。</Paragraph>
                     <Form.Item name="materialName" label="素材名称" rules={[{ required: true }]}><Input /></Form.Item>
                     <Form.Item name="materialType" label="素材类型" rules={[{ required: true }]}><Input placeholder="例如 standard / report / reference" /></Form.Item>
                     <Form.Item name="major" label="专业">

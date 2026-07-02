@@ -20,7 +20,8 @@ function getFriendlyError(error: AxiosError<ApiResponse<unknown>>) {
     const code = error.response?.data?.code;
     const message = error.response?.data?.message;
 
-    if (code === 40100 || error.response?.status === 401) return '登录已过期，请重新登录';
+    if (code === 40100) return '登录已过期，请重新登录';
+    if (error.response?.status === 401) return message && message !== 'Unauthorized' ? message : '登录已过期，请重新登录';
     if (code === 40300 || error.response?.status === 403) return '当前账号没有权限访问该功能';
     return message || error.message || '接口请求失败';
 }
@@ -69,6 +70,7 @@ export async function requestJson<T>(url: string, options?: RequestOptions): Pro
 
     if (!isSuccessCode(json.code)) {
         if (json.code === 40100) throw new Error('登录已过期，请重新登录');
+        if (json.code === 401) throw new Error(json.message && json.message !== 'Unauthorized' ? json.message : '登录已过期，请重新登录');
         if (json.code === 40300) throw new Error('当前账号没有权限访问该功能');
         throw new Error(json.message || '接口请求失败');
     }

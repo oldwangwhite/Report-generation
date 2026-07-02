@@ -8,12 +8,20 @@ def test_normal_user_cannot_access_admin_resources(client, auth_headers):
         assert response["code"] == 403
 
 
-def test_normal_user_can_read_templates_and_materials(client, auth_headers):
-    templates = client.get("/api/templates", headers=auth_headers).json()
+def test_normal_user_uses_options_but_cannot_read_admin_resource_lists(client, auth_headers):
+    denied_templates = client.get("/api/templates", headers=auth_headers)
+    assert denied_templates.status_code == 403
+    assert denied_templates.json()["code"] == 403
+
+    denied_materials = client.get("/api/materials", headers=auth_headers)
+    assert denied_materials.status_code == 403
+    assert denied_materials.json()["code"] == 403
+
+    templates = client.get("/api/templates/options", headers=auth_headers).json()
     assert templates["code"] == 200
     assert templates["data"]["total"] >= 1
 
-    materials = client.get("/api/materials", headers=auth_headers).json()
+    materials = client.get("/api/materials/options", headers=auth_headers).json()
     assert materials["code"] == 200
 
 
@@ -126,6 +134,23 @@ def test_admin_material_lifecycle(client, admin_headers, tmp_path):
 
     deleted = client.delete(f"/api/materials/{material_id}", headers=admin_headers).json()
     assert deleted["code"] == 200
+
+
+def test_admin_material_upload_rejects_dangerous_file_type(client, admin_headers, tmp_path):
+    executable = tmp_path / "tool.exe"
+    executable.write_bytes(b"MZ")
+
+    response = client.post(
+        "/api/materials",
+        headers=admin_headers,
+        data={"materialName": "危险文件", "materialType": "binary"},
+        files={"file": ("tool.exe", executable.read_bytes(), "application/x-msdownload")},
+    )
+
+    assert response.status_code == 400
+    body = response.json()
+    assert body["code"] == 400
+    assert body["data"]["field"] == "file"
 
 
 def test_model_config_masks_api_key_and_tests_connection(client, admin_headers, monkeypatch):

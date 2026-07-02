@@ -27,7 +27,7 @@ def test_generate_outline_for_two_report_types(client, auth_headers):
         json={
             "reportType": "coalInventoryAudit",
             "topic": "煤库存审计",
-            "templateId": "tpl_001",
+            "templateId": "tpl_002",
         },
     ).json()
 
@@ -107,3 +107,28 @@ def test_save_outline_omits_old_chapters_as_soft_deleted(client, auth_headers):
     assert len(saved["data"]["outline"]) == 1
     detail = client.get(f"/api/reports/{report_id}", headers=auth_headers).json()
     assert len(detail["data"]["outline"]) == 1
+
+
+def test_save_outline_rejects_unknown_parent(client, auth_headers):
+    report_id = create_report(client, auth_headers)["data"]["reportId"]
+    response = client.put(
+        f"/api/reports/{report_id}/outline",
+        headers=auth_headers,
+        json={
+            "outline": [
+                {
+                    "chapterId": None,
+                    "parentId": "chap_999999",
+                    "chapterNo": "",
+                    "title": "异常子章节",
+                    "level": 2,
+                    "sortOrder": 1,
+                }
+            ]
+        },
+    )
+
+    assert response.status_code == 400
+    body = response.json()
+    assert body["code"] == 400
+    assert body["data"]["field"] == "parentId"

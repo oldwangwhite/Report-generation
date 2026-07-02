@@ -23,7 +23,9 @@ def generate_content(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(report_generate_user),
 ):
-    stream = ContentGenerationService(db).stream_generate(report_id, payload, current_user)
+    service = ContentGenerationService(db)
+    service.validate_generate_request(report_id, payload, current_user)
+    stream = service.stream_generate(report_id, payload, current_user)
     return StreamingResponse(stream, media_type="text/event-stream")
 
 

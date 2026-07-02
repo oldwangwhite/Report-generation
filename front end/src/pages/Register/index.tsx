@@ -22,7 +22,7 @@ export default function RegisterPage() {
     const [showRequirements, setShowRequirements] = useState(false);
     const [showLengthError, setShowLengthError] = useState(false);
     const [showUsernameError, setShowUsernameError] = useState(false);
-    const [captchaData, setCaptchaData] = useState({ captchaId: '', captchaImage: '', devCode: '' });
+    const [captchaData, setCaptchaData] = useState({ captchaId: '', captchaImage: '' });
 
     const fetchCaptcha = async () => {
         try {
@@ -30,10 +30,8 @@ export default function RegisterPage() {
             setCaptchaData({
                 captchaId: data.captchaId,
                 captchaImage: data.captchaImage || data.image || '',
-                devCode: data.devCode || '',
             });
             form.setFieldsValue({ captchaId: data.captchaId });
-            if (data.devCode) message.info(`开发环境图形验证码：${data.devCode}`, 6);
         } catch (error) {
             message.error(error instanceof Error ? error.message : '获取验证码失败');
         }

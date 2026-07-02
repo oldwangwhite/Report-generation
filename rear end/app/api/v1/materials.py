@@ -20,10 +20,22 @@ def list_materials(
     keyword: str | None = None,
     status: str | None = None,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(admin_user),
 ):
     items, total = MaterialService(db).list_materials(page, size, major, keyword, status)
     return api_response(page_result(items, total, page, size), request)
+
+
+@router.get("/options")
+def list_material_options(
+    request: Request,
+    major: str | None = None,
+    keyword: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    items, total = MaterialService(db).list_selectable_materials(1, 100, major, keyword)
+    return api_response(page_result(items, total, 1, 100), request)
 
 
 @router.get("/{material_id}")
@@ -31,7 +43,7 @@ def get_material(
     material_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(admin_user),
 ):
     return api_response(MaterialService(db).get_material(material_id), request)
 

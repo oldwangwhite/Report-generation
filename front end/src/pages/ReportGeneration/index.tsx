@@ -503,6 +503,10 @@ export default function ReportGenerationPage() {
       message.warning('请先创建报告');
       return;
     }
+    if (!outline.length) {
+      message.warning('请先生成大纲和正文后再导出');
+      return;
+    }
     const unfinishedCount = outline.filter((item) => item.status !== 'done').length;
     if (unfinishedCount > 0) {
       Modal.confirm({
@@ -524,7 +528,11 @@ export default function ReportGenerationPage() {
       const task = await createExport(report!.reportId, fileFormat, values.templateId);
       const result = await getExportStatus(report!.reportId, task.exportId, fileFormat);
       setLatestExport(result);
-      message.success(`${fileFormat.toUpperCase()} 导出完成`);
+      message.success(
+        result.hasIncompleteContent
+          ? `${fileFormat.toUpperCase()} 导出完成，仍有 ${result.incompleteChapterCount || 0} 个章节未生成`
+          : `${fileFormat.toUpperCase()} 导出完成`,
+      );
     } finally {
       setExporting(false);
     }

@@ -31,6 +31,7 @@ class ExportService:
             raise BusinessError(
                 400, "参数错误", {"field": "fileFormat", "reason": "不支持的导出格式"}
             )
+        completion = self._validate_exportable(report.id)
         item = self.exports.create(
             ReportExport(report_id=report.id, file_format=file_format, status="exporting")
         )
@@ -42,9 +43,12 @@ class ExportService:
             item.file_path = str(path)
             item.file_size = path.stat().st_size
             item.status = "exported"
+            report.status = "exported"
         except Exception as exc:
             item.status = "exportFailed"
             item.error_message = str(exc)
+            report.status = "exportFailed"
+        self.db.add(report)
         self.exports.save(item)
         if item.status == "exportFailed":
             raise BusinessError(
@@ -52,11 +56,10 @@ class ExportService:
                 "文件导出失败",
                 {"errorType": "export_failed", "reason": item.error_message},
             )
-        return {
-            "exportId": to_external_id("exp", item.id),
-            "reportId": report_id,
-            "status": "exporting",
-        }
+        result = self._export_item(item)
+        result["incompleteChapterCount"] = completion["incompleteChapterCount"]
+        result["hasIncompleteContent"] = completion["incompleteChapterCount"] > 0
+        return result
 
     def get_export(self, report_id: str, export_id: str, user: CurrentUser) -> dict:
         report = self.report_service._get_report_for_user(report_id, user)
@@ -106,6 +109,45 @@ class ExportService:
             build_markdown(report, outline, contents_by_chapter, path)
         elif file_format == "txt":
             build_text(report, outline, contents_by_chapter, path)
+
+    def _validate_exportable(self, report_id: int) -> dict:
+        outline = (
+            self.db.query(ReportOutline)
+            .filter(ReportOutline.report_id == report_id, ReportOutline.deleted_flag == 0)
+            .order_by(ReportOutline.chapter_no)
+            .all()
+        )
+        if not outline:
+            raise BusinessError(
+                400,
+                "当前报告尚未生成大纲，不能导出",
+                {"field": "reportId", "reason": "outline is empty"},
+            )
+        contents = (
+            self.db.query(ReportChapterContent)
+            .filter(
+                ReportChapterContent.report_id == report_id,
+                ReportChapterContent.deleted_flag == 0,
+            )
+            .all()
+        )
+        contents_by_chapter = {content.chapter_id: content for content in contents}
+        has_any_content = any(
+            (content.content or "").strip() or (content.tables or [])
+            for content in contents
+        )
+        if not has_any_content:
+            raise BusinessError(
+                400,
+                "当前报告内容为空，不能导出",
+                {"field": "reportId", "reason": "content is empty"},
+            )
+        incomplete = 0
+        for chapter in outline:
+            content = contents_by_chapter.get(chapter.id)
+            if chapter.status != "done" or content is None or not ((content.content or "").strip() or (content.tables or [])):
+                incomplete += 1
+        return {"incompleteChapterCount": incomplete}
 
     def _select_template(self, report, template_id: str | None = None) -> ReportTemplate | None:
         query = self.db.query(ReportTemplate).filter(

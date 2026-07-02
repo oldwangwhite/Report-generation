@@ -48,7 +48,9 @@ export default function LoginPage() {
     const [showEmailRegisterModal, setShowEmailRegisterModal] = useState(false);
     const [showPhoneRegisterModal, setShowPhoneRegisterModal] = useState(false);
     const [registerEmail, setRegisterEmail] = useState('');
+    const [registerEmailCode, setRegisterEmailCode] = useState('');
     const [registerPhone, setRegisterPhone] = useState('');
+    const [registerPhoneCode, setRegisterPhoneCode] = useState('');
     const [regPasswordStrength, setRegPasswordStrength] = useState(0);
     const [regShowRequirements, setRegShowRequirements] = useState(false);
     const [regShowLengthError, setRegShowLengthError] = useState(false);
@@ -90,10 +92,6 @@ export default function LoginPage() {
         }, 1000);
     };
 
-    const showDevCode = (devCode?: string) => {
-        if (devCode) message.info(`开发环境验证码：${devCode}`, 8);
-    };
-
     const handleSendEmailCode = async () => {
         const email = form.getFieldValue('email');
         if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -102,9 +100,8 @@ export default function LoginPage() {
         }
         setSendEmailLoading(true);
         try {
-            const result = await sendEmailCode(email);
+            await sendEmailCode(email);
             message.success('验证码已发送');
-            showDevCode(result?.devCode);
             countdown(setEmailCountdown);
         } catch (error) {
             message.error(error instanceof Error ? error.message : '发送失败');
@@ -121,9 +118,8 @@ export default function LoginPage() {
         }
         setSendPhoneLoading(true);
         try {
-            const result = await sendPhoneCode(phone);
+            await sendPhoneCode(phone);
             message.success('验证码已发送');
-            showDevCode(result?.devCode);
             countdown(setPhoneCountdown);
         } catch (error) {
             message.error(error instanceof Error ? error.message : '发送失败');
@@ -159,12 +155,14 @@ export default function LoginPage() {
             const messageText = error instanceof Error ? error.message : '登录失败';
             if (loginMode === 'email' && messageText.includes('未注册')) {
                 setRegisterEmail(values.email);
+                setRegisterEmailCode(values.emailCode);
                 emailRegisterForm.resetFields();
                 setShowEmailRegisterModal(true);
                 return;
             }
             if (loginMode === 'phone' && messageText.includes('未注册')) {
                 setRegisterPhone(values.phone);
+                setRegisterPhoneCode(values.phoneCode);
                 phoneRegisterForm.resetFields();
                 setShowPhoneRegisterModal(true);
                 return;
@@ -210,6 +208,7 @@ export default function LoginPage() {
                 email: registerEmail,
                 phone: values.regPhone || '',
                 displayName: values.regDisplayName,
+                captchaCode: registerEmailCode,
                 fromEmailLogin: true,
             });
             authLogin(result.accessToken, result.user);
@@ -229,6 +228,7 @@ export default function LoginPage() {
                 phone: registerPhone,
                 email: values.regEmail || '',
                 displayName: values.regDisplayName,
+                captchaCode: registerPhoneCode,
                 fromPhoneLogin: true,
             });
             authLogin(result.accessToken, result.user);
@@ -264,10 +264,9 @@ export default function LoginPage() {
         }
         setForgotLoading(true);
         try {
-            const result = forgotVerifyType === 'phone'
+            forgotVerifyType === 'phone'
                 ? await sendPhoneCode(forgotContact)
                 : await sendEmailCode(forgotContact);
-            showDevCode(result?.devCode);
             countdown(setForgotCountdown);
             message.success('验证码已发送');
         } catch (error) {

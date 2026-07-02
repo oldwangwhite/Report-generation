@@ -67,14 +67,14 @@ export function loginByPhone(phone: string, code: string) {
 }
 
 export function sendEmailCode(email: string) {
-    return requestJson<{ devCode?: string } | null>('/api/auth/email/send-code', {
+    return requestJson<{ expiresIn?: number } | null>('/api/auth/email/send-code', {
         method: 'POST',
         data: { email },
     });
 }
 
 export function sendPhoneCode(phone: string) {
-    return requestJson<{ devCode?: string } | null>('/api/auth/phone/send-code', {
+    return requestJson<{ expiresIn?: number } | null>('/api/auth/phone/send-code', {
         method: 'POST',
         data: { phone },
     });
@@ -98,7 +98,7 @@ export function verifySlideCaptcha(captchaId: string, distance: number) {
 }
 
 export function getCaptcha() {
-    return requestJson<{ captchaId: string; captchaImage: string; image?: string; devCode?: string }>('/api/auth/captcha');
+    return requestJson<{ captchaId: string; captchaImage: string; image?: string }>('/api/auth/captcha');
 }
 
 export function forgotVerify(contact: string, code: string) {

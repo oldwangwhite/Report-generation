@@ -170,7 +170,7 @@ export async function getTemplates(reportType?: string) {
     return delay(reportType ? MOCK_TEMPLATES.filter((item) => item.reportType === reportType) : MOCK_TEMPLATES);
   }
   const query = reportType ? `?reportType=${reportType}` : '';
-  return requestJson<PageResult<Template>>(`/api/templates${query}`)
+  return requestJson<PageResult<Template>>(`/api/templates/options${query}`)
     .then((data) => data.items)
     .catch(() => []);
 }
@@ -178,7 +178,7 @@ export async function getTemplates(reportType?: string) {
 /** 查询可关联的知识库素材。 */
 export async function getMaterials(params?: { major?: string; keyword?: string }) {
   if (USE_MOCK) return delay(MOCK_MATERIALS);
-  return requestJson<PageResult<Material>>(`/api/materials${buildQuery(params)}`)
+  return requestJson<PageResult<Material>>(`/api/materials/options${buildQuery(params)}`)
     .then((data) => data.items)
     .catch(() => []);
 }
@@ -294,6 +294,8 @@ export async function getExportStatus(reportId: string, exportId: string, fileFo
       fileSize: 245760,
       downloadUrl: `/api/reports/${reportId}/exports/${exportId}/download`,
       status: 'exported' as const,
+      incompleteChapterCount: 0,
+      hasIncompleteContent: false,
       createdAt: new Date().toISOString(),
     }, 900);
   }
@@ -555,4 +557,3 @@ export async function streamGenerateContent(
     });
   }
 }
-

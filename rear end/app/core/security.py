@@ -4,6 +4,7 @@ from fastapi import Depends, Header
 from sqlalchemy.orm import Session
 
 from app.core.auth_utils import decode_access_token
+from app.core.config import get_settings
 from app.core.errors import ForbiddenError, UnauthorizedError
 from app.db.session import get_db
 from app.entity.user import Role, User
@@ -54,7 +55,7 @@ def get_current_user(
     if not authorization or not authorization.startswith("Bearer "):
         raise UnauthorizedError()
     token = authorization.removeprefix("Bearer ").strip()
-    user = TOKEN_USERS.get(token)
+    user = TOKEN_USERS.get(token) if get_settings().enable_static_test_tokens else None
     if user is None:
         payload = decode_access_token(token)
         if payload is not None:
